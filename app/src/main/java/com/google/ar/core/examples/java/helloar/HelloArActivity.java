@@ -403,7 +403,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         float dy = pose1.ty() - pose2.ty();
         float dz = pose1.tz() - pose2.tz();
 
-// Compute the straight-line distance.
+        // Compute the straight-line distance.
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
@@ -419,7 +419,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         float dy = pose1[1] - pose2[1];
         float dz = pose1[2] - pose2[2];
 
-// Compute the straight-line distance.
+        // Compute the straight-line distance.
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
@@ -429,13 +429,15 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
      * @return ArrayList of the objects in the session
      */
     private ArrayList<ArrayList<float[]>> getObjects(FloatBuffer points, Plane floor) {
-        //Collection<Anchor> myAnchors = session.getAllAnchors();
         ArrayList<float[]> allPoints = new ArrayList<>();
         for (int i = 0; i < points.remaining(); i += 4) {
             float[] currPoint = {points.get(i), points.get(i + 1), points.get(i + 2), points.get(i + 3)};
-            Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
-            // make sure the point isn't on the floor and that we are sure enough about it's position
-            if (currPoint[3] > 0.4) { //&& !floor.isPoseInExtents(pointPose)) {
+            //Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
+            // makes sure the point isn't on the floor
+            if (floor != null && currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
+                continue;
+            }
+            if (currPoint[3] > 0.4) {
                 allPoints.add(binarySearch(currPoint, allPoints), currPoint);
             }
         }
@@ -508,8 +510,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         for (ArrayList<float[]> object : objects) {
             boolean contains = false;
             for (float[] pose1 : object) {
-                float pose2[] = point;
-                if (pose1[0] == pose2[0] && pose1[1] == pose2[1] && pose1[2] == pose2[2]) {
+                if (pose1[0] == point[0] && pose1[1] == point[1] && pose1[2] == point[2]) {
                     contains = true;
                     break;
                 }
@@ -544,5 +545,31 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             }
         }
         return minDistance;
+    }
+
+    /**
+     * @param planes a list of all planes detected by the program
+     * @return the floor if detected, null otherwise
+     */
+    Plane getFloor(ArrayList<Plane> planes, Camera camera) {
+        if (planes.size() == 0) {
+            return null;
+        }
+        Plane floor = null;
+        for (Plane plane : planes) {
+            // if the plane is facing up
+            if (plane.getType() == Plane.Type.HORIZONTAL_UPWARD_FACING) {
+                Pose center = plane.getCenterPose();
+                // if the plane is at least a meter below the person using the app
+                if (camera.getPose().getTranslation()[1] - center.getTranslation()[1] > 1) {
+                    if (floor == null) {
+                        floor = plane;
+                    } else if (floor.getCenterPose().getTranslation()[1] > plane.getCenterPose().getTranslation()[1]) {
+                        floor = plane;
+                    }
+                }
+            }
+        }
+        return floor;
     }
 }
