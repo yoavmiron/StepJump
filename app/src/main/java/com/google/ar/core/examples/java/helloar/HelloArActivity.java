@@ -16,6 +16,7 @@
 
 package com.google.ar.core.examples.java.helloar;
 
+import android.media.Image;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
@@ -52,7 +53,10 @@ import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 import java.io.IOException;
+import java.sql.Time;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
+
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
@@ -344,7 +348,14 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   // Handle only one tap per frame, as taps are usually low frequency compared to frame rate.
   private void handleTap(Frame frame, Camera camera) {
     MotionEvent tap = tapHelper.poll();
+
     if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
+      try {
+        Image image = frame.acquireCameraImage();
+        TimeUnit.SECONDS.sleep(1);
+      }
+      catch (Exception e){    }
+      /*
       for (HitResult hit : frame.hitTest(tap)) {
         // Check if any plane was hit, and if it was hit inside the plane polygon
         Trackable trackable = hit.getTrackable();
@@ -382,6 +393,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
           break;
         }
       }
+      */
     }
   }
 }
