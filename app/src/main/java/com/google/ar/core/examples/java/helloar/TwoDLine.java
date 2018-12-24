@@ -196,7 +196,7 @@ public class TwoDLine {
         }
         width = 0;
         float min_Z_width = 10000;
-        for (float i=0; i<maxX - 1; i+=0.1)
+        for (float i=0; i<maxZ - 1; i+=0.1)
         {
             width = Width_Of_Plane(0, 0, i, 0, points);
             if (width < min_Z_width)
