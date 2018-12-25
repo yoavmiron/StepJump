@@ -59,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+import com.google.ar.sceneform.math.Vector3;
 
 /**
  * This is a simple example that shows how to create an augmented reality (AR) application using the
@@ -349,13 +350,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
   private void handleTap(Frame frame, Camera camera) {
     MotionEvent tap = tapHelper.poll();
 
+
     if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
-      try {
-        Image image = frame.acquireCameraImage();
-        TimeUnit.SECONDS.sleep(1);
-      }
-      catch (Exception e){    }
-      /*
       for (HitResult hit : frame.hitTest(tap)) {
         // Check if any plane was hit, and if it was hit inside the plane polygon
         Trackable trackable = hit.getTrackable();
@@ -393,7 +389,20 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
           break;
         }
       }
-      */
     }
+  }
+
+  /**
+   * gives the angle between two given planes
+   * @param plane1
+   * @param plane2
+   * @return the angle between the planes in degrees.
+   */
+  private float planeAngle(Plane plane1, Plane plane2){
+      float[] normal1Arr = plane1.getCenterPose().getYAxis();
+      float[] normal2Arr = plane2.getCenterPose().getYAxis();
+      Vector3 normal1Vec = new Vector3(normal1Arr[0], normal1Arr[1], normal1Arr[2]);
+      Vector3 normal2Vec = new Vector3(normal2Arr[0], normal2Arr[1], normal2Arr[2]);
+      return Vector3.angleBetweenVectors(normal1Vec, normal2Vec);
   }
 }
