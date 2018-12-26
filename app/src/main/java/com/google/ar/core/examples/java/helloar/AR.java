@@ -168,6 +168,28 @@ public class AR {
     }
 
     /**
+     * calculates the distance between the given point and the camera
+     *
+     * @param pixel pixel on screen
+     * @param frame current frame
+     * @return distance between two pixels in the real world, -1 if can't calculate
+     */
+    public static float pixelToDistance(float[] pixel, Frame frame) {
+        List<HitResult> hits = frame.hitTest(pixel[0], pixel[1]);
+        if (hits.isEmpty()) {
+            return -1.0f;
+        }
+        // set the minimal distance to be too large
+        float minDistance = 300.0f;
+        Pose cameraPose = frame.getCamera().getPose();
+        for (HitResult hit1 : hits) {
+            float distance = distanceBetweenPoses(hit1.getHitPose(), cameraPose);
+            minDistance = (distance < minDistance) ? distance : minDistance;
+        }
+        return minDistance;
+    }
+
+    /**
      * @param planes a list of all planes detected by the program
      * @return the floor if detected, null otherwise
      */

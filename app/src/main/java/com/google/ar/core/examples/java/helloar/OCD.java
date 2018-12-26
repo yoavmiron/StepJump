@@ -3,8 +3,15 @@ package com.google.ar.core.examples.java.helloar;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.YuvImage;
+import android.media.Image;
 import org.tensorflow.lite.Interpreter;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
@@ -45,13 +53,40 @@ public class OCD
     // contains the number of detected boxes
     private float[] numDetections;
 
-    // outputLabels: array of shape [NUM_DETECTIONS]
-    // contains the labels of the detected boxes
-    private String[] outputLabels;
-
     private ByteBuffer imgData;
 
     private Interpreter tfLite;
+
+    /**
+     * Class that represents a recognition in an image
+     */
+    public class Recognition
+    {
+        final RectF location;
+        final String label;
+        final float confidence;
+
+        public Recognition(RectF location, String label, float confidence)
+        {
+            this.location = location;
+            this.label = label;
+            this.confidence = confidence;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public Float getConfidence() {
+            return confidence;
+        }
+
+        public RectF getLocation() {
+            return new RectF(location);
+        }
+
+    }
+
 
     private OCD() {}
 
@@ -91,8 +126,9 @@ public class OCD
         return ocd;
     }
 
-    public Map<Integer, Object> detect(final Bitmap bitmap)
+    public ArrayList<Recognition> detect(final Image image)
     {
+        Bitmap bitmap = prepareImage(image);
         bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
         imgData.rewind();
         for (int i = 0; i < inputSize; ++i) {
@@ -114,7 +150,6 @@ public class OCD
         outputClasses = new float[1][NUM_DETECTIONS];
         outputScores = new float[1][NUM_DETECTIONS];
         numDetections = new float[1];
-        outputLabels = new String[NUM_DETECTIONS];
         Object[] inputArray = {imgData};
         Map<Integer, Object> outputMap = new HashMap<>();
         outputMap.put(0, outputLocations);
@@ -125,16 +160,32 @@ public class OCD
         // run model
         tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
 
-        // SSD Mobilenet V1 Model assumes class 0 is background class
-        // in label file and class labels start from 1 to number_of_classes+1,
-        // while outputClasses correspond to class index from 0 to number_of_classes
-        int labelOffset = 1;
+        // Show the best detections.
+        // after scaling them back to the input size.
+        final ArrayList<Recognition> recognitions = new ArrayList<>(NUM_DETECTIONS);
         for(int i = 0; i < NUM_DETECTIONS; i++)
         {
-            outputLabels[i] = labels.get((int) outputClasses[0][i] + labelOffset);
+            if(outputScores[0][i] < 0.5)
+            {
+                continue;
+            }
+            final RectF detection =
+                    new RectF(
+                            outputLocations[0][i][1],
+                            outputLocations[0][i][0],
+                            outputLocations[0][i][3],
+                            outputLocations[0][i][2]);
+            // SSD Mobilenet V1 Model assumes class 0 is background class
+            // in label file and class labels start from 1 to number_of_classes+1,
+            // while outputClasses correspond to class index from 0 to number_of_classes
+            int labelOffset = 1;
+            recognitions.add(
+                    new Recognition(
+                            detection,
+                            labels.get((int) outputClasses[0][i] + labelOffset),
+                            outputScores[0][i]));
         }
-        outputMap.put(4, outputLabels);
-        return outputMap;
+        return recognitions;
     }
 
 
@@ -148,5 +199,24 @@ public class OCD
         long startOffset = fileDescriptor.getStartOffset();
         long declaredLength = fileDescriptor.getDeclaredLength();
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+    }
+
+    private Bitmap prepareImage(final Image image)
+    {
+        ByteBuffer cameraPlaneY = image.getPlanes()[0].getBuffer();
+        ByteBuffer cameraPlaneU = image.getPlanes()[1].getBuffer();
+        ByteBuffer cameraPlaneV = image.getPlanes()[2].getBuffer();
+
+        byte[] compositeByteArray = new byte[cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity()];
+        cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity());
+        cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity());
+        cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity());
+
+        ByteArrayOutputStream baOutputStream = new ByteArrayOutputStream();
+        YuvImage yuvImage = new YuvImage(compositeByteArray, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
+        yuvImage.compressToJpeg(new Rect(0, 0, image.getWidth(), image.getHeight()), 75, baOutputStream);
+        byte[] byteForBitmap = baOutputStream.toByteArray();
+        Bitmap b =  BitmapFactory.decodeByteArray(byteForBitmap, 0, byteForBitmap.length);
+        return Bitmap.createScaledBitmap(b, inputSize, inputSize, false);
     }
 }

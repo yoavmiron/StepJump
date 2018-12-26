@@ -62,8 +62,10 @@ import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.io.ByteArrayOutputStream;
+
 import android.graphics.YuvImage;
 import android.graphics.Rect;
+
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -286,8 +288,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             Frame frame = session.update();
             Camera camera = frame.getCamera();
 
-            Bitmap bitmap = imageToBitmap(frame.acquireCameraImage());
-
             //#############################################
             // OCD CODE
             OCD ocd = OCD.create(getAssets(),
@@ -298,8 +298,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
 
             // important
-            Map<Integer, Object> output = ocd.detect(bitmap);
-
+            ArrayList<OCD.Recognition> recognitions = ocd.detect(frame.acquireCameraImage());
 
 
             //#############################################
@@ -310,17 +309,34 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
             ArrayList<Plane> planes = (ArrayList<Plane>) session.getAllTrackables(Plane.class);
             Plane floor = AR.getFloor(planes, camera);
+            // important
             float floorWidth = -1.0f;
-            if(floor != null) {
-                // important
+            if (floor != null) {
                 floorWidth = AR.find_width(floor);
             }
 
+            // important
+            float[] object_widths = new float[recognitions.size()];
+            float[] center_of_objects = new float[recognitions.size()];
 
+            for (int i = 0; i < recognitions.size(); i++) {
+                int height = frame.acquireCameraImage().getHeight();
+                int width = frame.acquireCameraImage().getWidth();
+                float top = recognitions.get(i).location.top * height;
+                float bottom = recognitions.get(i).location.bottom * height;
+                float left = recognitions.get(i).location.left * width;
+                float right = recognitions.get(i).location.right * width;
+                float[] pixel1 = {left, bottom};
+                float[] pixel2 = {right, bottom};
+                float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
+                object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
+                center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
+                // somekind of show: width of lable is object_widths[i]
+                // somekind of show: distance of lable from phone is center_of_objects[i]
+            }
 
 
             //#############################################
-
 
 
             // Handle one tap per frame.
@@ -436,29 +452,5 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                 }
             }
         }
-    }
-
-    /**
-     * converts an image to bitmap so OCD can use
-     * @param image image from frame
-     * @return bitmap of the image
-     */
-    private Bitmap imageToBitmap(Image image)
-    {
-        ByteBuffer cameraPlaneY = image.getPlanes()[0].getBuffer();
-        ByteBuffer cameraPlaneU = image.getPlanes()[1].getBuffer();
-        ByteBuffer cameraPlaneV = image.getPlanes()[2].getBuffer();
-
-        byte[] compositeByteArray = new byte[cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity()];
-        cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity());
-        cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity());
-        cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity());
-
-        ByteArrayOutputStream baOutputStream = new ByteArrayOutputStream();
-        YuvImage yuvImage = new YuvImage(compositeByteArray, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
-        yuvImage.compressToJpeg(new Rect(0, 0, image.getWidth(), image.getHeight()), 75, baOutputStream);
-        byte[] byteForBitmap = baOutputStream.toByteArray();
-        Bitmap bitmap = BitmapFactory.decodeByteArray(byteForBitmap, 0, byteForBitmap.length);
-        return bitmap;
     }
 }
