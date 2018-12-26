@@ -1,5 +1,4 @@
-package com.google.ar.core.examples.java.helloar;
-
+package com.example.t8367330.prol;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
@@ -46,6 +45,10 @@ public class OCD
     // contains the number of detected boxes
     private float[] numDetections;
 
+    // outputLabels: array of shape [NUM_DETECTIONS]
+    // contains the labels of the detected boxes
+    private String[] outputLabels;
+
     private ByteBuffer imgData;
 
     private Interpreter tfLite;
@@ -53,10 +56,10 @@ public class OCD
     private OCD() {}
 
     public static OCD create(final AssetManager assetManager,
-                             final String modelFilename,
-                             final String labelFilename,
-                             final int inputSize,
-                             final boolean isQuantized) throws IOException
+        final String modelFilename,
+        final String labelFilename,
+        final int inputSize,
+        final boolean isQuantized) throws IOException
     {
         final OCD ocd = new OCD();
         ocd.tfLite = new Interpreter(loadModelFile(assetManager, modelFilename));
@@ -111,6 +114,7 @@ public class OCD
         outputClasses = new float[1][NUM_DETECTIONS];
         outputScores = new float[1][NUM_DETECTIONS];
         numDetections = new float[1];
+        outputLabels = new String[NUM_DETECTIONS];
         Object[] inputArray = {imgData};
         Map<Integer, Object> outputMap = new HashMap<>();
         outputMap.put(0, outputLocations);
@@ -121,6 +125,15 @@ public class OCD
         // run model
         tfLite.runForMultipleInputsOutputs(inputArray, outputMap);
 
+        // SSD Mobilenet V1 Model assumes class 0 is background class
+        // in label file and class labels start from 1 to number_of_classes+1,
+        // while outputClasses correspond to class index from 0 to number_of_classes
+        int labelOffset = 1;
+        for(int i = 0; i < NUM_DETECTIONS; i++)
+        {
+            outputLabels[i] = labels.get((int) outputClasses[0][i] + labelOffset);
+        }
+        outputMap.put(4, outputLabels);
         return outputMap;
     }
 
