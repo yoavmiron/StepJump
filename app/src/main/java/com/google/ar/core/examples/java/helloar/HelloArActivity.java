@@ -16,6 +16,10 @@
 
 package com.google.ar.core.examples.java.helloar;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.media.Image;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
@@ -55,6 +59,10 @@ import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.io.ByteArrayOutputStream;
+import android.graphics.YuvImage;
+import android.graphics.Rect;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -571,5 +579,24 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             }
         }
         return floor;
+    }
+
+    private Bitmap imageToBitmap(Image image)
+    {
+        ByteBuffer cameraPlaneY = image.getPlanes()[0].getBuffer();
+        ByteBuffer cameraPlaneU = image.getPlanes()[1].getBuffer();
+        ByteBuffer cameraPlaneV = image.getPlanes()[2].getBuffer();
+
+        byte[] compositeByteArray = new byte[cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity()];
+        cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity());
+        cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity());
+        cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity());
+
+        ByteArrayOutputStream baOutputStream = new ByteArrayOutputStream();
+        YuvImage yuvImage = new YuvImage(compositeByteArray, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
+        yuvImage.compressToJpeg(new Rect(0, 0, image.getWidth(), image.getHeight()), 75, baOutputStream);
+        byte[] byteForBitmap = baOutputStream.toByteArray();
+        Bitmap bitmap = BitmapFactory.decodeByteArray(byteForBitmap, 0, byteForBitmap.length);
+        return bitmap;
     }
 }
