@@ -59,6 +59,7 @@ import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.io.ByteArrayOutputStream;
 import android.graphics.YuvImage;
@@ -66,6 +67,7 @@ import android.graphics.Rect;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -284,6 +286,40 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             Frame frame = session.update();
             Camera camera = frame.getCamera();
 
+            Bitmap bitmap = imageToBitmap(frame.acquireCameraImage());
+
+            //#############################################
+            // OCD CODE
+            OCD ocd = OCD.create(getAssets(),
+                    "mobilenet_v1_1.0_224.tflite",
+                    "labels_imagenet_slim.txt",
+                    224,
+                    false);
+
+
+            // important
+            Map<Integer, Object> output = ocd.detect(bitmap);
+
+            //#############################################
+
+
+            //#############################################
+            // AR CODE
+
+            ArrayList<Plane> planes = (ArrayList<Plane>) session.getAllTrackables(Plane.class);
+            Plane floor = AR.getFloor(planes, camera);
+            float floorWidth = -1.0f;
+            if(floor != null) {
+                // important
+                floorWidth = AR.find_width(floor);
+            }
+
+
+
+            //#############################################
+
+
+
             // Handle one tap per frame.
             handleTap(frame, camera);
 
@@ -397,188 +433,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                 }
             }
         }
-    }
-
-    /**
-     * computes the distance between to poses
-     *
-     * @param pose1 first pose
-     * @param pose2 second pose
-     * @return the distance between the poses
-     */
-    private float distanceBetweenPoses(Pose pose1, Pose pose2) {
-        float dx = pose1.tx() - pose2.tx();
-        float dy = pose1.ty() - pose2.ty();
-        float dz = pose1.tz() - pose2.tz();
-
-        // Compute the straight-line distance.
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    /**
-     * computes the distance between to poses
-     *
-     * @param pose1 first pose
-     * @param pose2 second pose
-     * @return the distance between the poses
-     */
-    private float distanceBetweenPoses(float[] pose1, float[] pose2) {
-        float dx = pose1[0] - pose2[0];
-        float dy = pose1[1] - pose2[1];
-        float dz = pose1[2] - pose2[2];
-
-        // Compute the straight-line distance.
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    /**
-     * @param points all points recognized in the frame
-     * @param floor  the floor plane
-     * @return ArrayList of the objects in the session
-     */
-    private ArrayList<ArrayList<float[]>> getObjects(FloatBuffer points, Plane floor) {
-        ArrayList<float[]> allPoints = new ArrayList<>();
-        for (int i = 0; i < points.remaining(); i += 4) {
-            float[] currPoint = {points.get(i), points.get(i + 1), points.get(i + 2), points.get(i + 3)};
-            //Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
-            // makes sure the point isn't on the floor
-            if (floor != null && currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
-                continue;
-            }
-            if (currPoint[3] > 0.4) {
-                allPoints.add(binarySearch(currPoint, allPoints), currPoint);
-            }
-        }
-        ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
-        float distanceThreshold = 0.1f;
-        for (float[] currPoint : allPoints) {
-            // check that the point isn't on the floor
-            // threshold of security about point position
-            boolean foundObject = false;
-            for (ArrayList<float[]> object : objects) {
-                if (foundObject) {
-                    break;
-                }
-                int index = binarySearch(currPoint, object);
-                if (distanceBetweenPoses(currPoint, allPoints.get(index)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
-                }
-                if (index != 0 && distanceBetweenPoses(currPoint, allPoints.get(index - 1)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
-                }
-                if (index != allPoints.size() - 1 && distanceBetweenPoses(currPoint, allPoints.get(index + 1)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
-                }
-            }
-            // new object detected
-            if (!foundObject) {
-                ArrayList<float[]> newObject = new ArrayList<float[]>();
-                newObject.add(currPoint);
-                objects.add(newObject);
-            }
-        }
-        return objects;
-    }
-
-
-    /**
-     * @param point     point to add to allPoints
-     * @param allPoints all the points added so far
-     * @return the index to which we need to add the new point
-     */
-    int binarySearch(float[] point, ArrayList<float[]> allPoints) {
-        if (allPoints.size() == 0) {
-            return -1;
-        }
-        int min = 0;
-        int max = allPoints.size();
-        float pointX = point[0];
-        while (min != max) {
-            float midX = allPoints.get((min + max) / 2)[0];
-            if (midX == pointX) {
-                return (min + max) / 2;
-            } else if (midX > pointX) {
-                max = (max + min) / 2;
-            } else {
-                min = (max + min) / 2;
-            }
-        }
-        return -1;
-    }
-
-    /**
-     * @param point   the point to search it's object
-     * @param objects all objects found
-     * @return index of object in objects in which the anchor is placed
-     */
-    private int getIndexOfObject(float[] point, ArrayList<ArrayList<float[]>> objects) {
-        for (ArrayList<float[]> object : objects) {
-            boolean contains = false;
-            for (float[] pose1 : object) {
-                if (pose1[0] == point[0] && pose1[1] == point[1] && pose1[2] == point[2]) {
-                    contains = true;
-                    break;
-                }
-            }
-            if (contains) {
-                return objects.indexOf(object);
-            }
-        }
-        return -1;
-    }
-
-    /**
-     * calculates the distance between two points on the screen in the real world
-     *
-     * @param pixel1 first pixel on screen
-     * @param pixel2 second pixel on screen
-     * @param frame  current frame
-     * @return distance between two pixels in the real world, -1 if can't calculate
-     */
-    private float pixelsToDistance(float[] pixel1, float[] pixel2, Frame frame) {
-        List<HitResult> hits1 = frame.hitTest(pixel1[0], pixel1[1]);
-        List<HitResult> hits2 = frame.hitTest(pixel2[0], pixel2[1]);
-        if (hits1.isEmpty() || hits2.isEmpty()) {
-            return -1.0f;
-        }
-        // set the minimal distance to be too large
-        float minDistance = 300.0f;
-        for (HitResult hit1 : hits1) {
-            for (HitResult hit2 : hits2) {
-                float distance = distanceBetweenPoses(hit1.getHitPose(), hit2.getHitPose());
-                minDistance = (distance < minDistance) ? distance : minDistance;
-            }
-        }
-        return minDistance;
-    }
-
-    /**
-     * @param planes a list of all planes detected by the program
-     * @return the floor if detected, null otherwise
-     */
-    Plane getFloor(ArrayList<Plane> planes, Camera camera) {
-        if (planes.size() == 0) {
-            return null;
-        }
-        Plane floor = null;
-        for (Plane plane : planes) {
-            // if the plane is facing up
-            if (plane.getType() == Plane.Type.HORIZONTAL_UPWARD_FACING) {
-                Pose center = plane.getCenterPose();
-                // if the plane is at least a meter below the person using the app
-                if (camera.getPose().getTranslation()[1] - center.getTranslation()[1] > 1) {
-                    if (floor == null) {
-                        floor = plane;
-                    } else if (floor.getCenterPose().getTranslation()[1] > plane.getCenterPose().getTranslation()[1]) {
-                        floor = plane;
-                    }
-                }
-            }
-        }
-        return floor;
     }
 
     /**
