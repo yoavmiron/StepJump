@@ -581,6 +581,11 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         return floor;
     }
 
+    /**
+     * converts an image to bitmap so OCD can use
+     * @param image image from frame
+     * @return bitmap of the image
+     */
     private Bitmap imageToBitmap(Image image)
     {
         ByteBuffer cameraPlaneY = image.getPlanes()[0].getBuffer();
