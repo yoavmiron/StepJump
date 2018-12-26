@@ -193,62 +193,54 @@ public class AR {
         return floor;
     }
 
-    private static float Width_Of_Plane(float x1, float z1, float x2, float z2, float[] polygon_vertices)
-    {
+    private static float Width_Of_Plane(float x1, float z1, float x2, float z2, float[] polygon_vertices) {
         /*
         Finds the width of the plane at point (x2,z2) where (x1,z1) is the center
          */
-        TwoDLine l = TwoDLine.Create_From_Two_Points(x1,z1,x2,z2);
-        TwoDLine vertical = l.Vertical(x2,z2);
+        TwoDLine l = TwoDLine.Create_From_Two_Points(x1, z1, x2, z2);
+        TwoDLine vertical = l.Vertical(x2, z2);
         TwoDLine[] lines = vertical.find_lines(polygon_vertices);
-        float width = TwoDLine.Distance_Between_Intersections(vertical,lines[0],lines[1]);
+        float width = TwoDLine.Distance_Between_Intersections(vertical, lines[0], lines[1]);
         return width;
     }
 
     /**
      * calculates the width of a given plane
+     *
      * @param floor plane to calculate it's width
      * @return width of plane if can calculate, 1000 otherwise
      */
-    public static float find_width (Plane floor)
-    {
+    public static float find_width(Plane floor) {
         return find_width(floor.getPolygon().array());
     }
 
-    private static float find_width (float[] points)
-    {
-        float[] xes = new float[points.length/2];
-        float[] zes = new float[points.length/2];
-        for(int i = 0; i < points.length; i+= 2)
-        {
-            xes[i/2] = points[i];
-            zes[i/2] = points[i+1];
+    private static float find_width(float[] points) {
+        float[] xes = new float[points.length / 2];
+        float[] zes = new float[points.length / 2];
+        for (int i = 0; i < points.length; i += 2) {
+            xes[i / 2] = points[i];
+            zes[i / 2] = points[i + 1];
         }
         float maxX = 0;
-        for (int i=0; i< xes.length; i++)
-        {
+        for (int i = 0; i < xes.length; i++) {
             if (xes[i] > maxX)
                 maxX = xes[i];
         }
         float width;
         float min_X_width = 10000;
-        for (float i=0; i<maxX - 1; i+=0.1)
-        {
+        for (float i = -maxX + 1; i <= maxX - 1; i += 0.1) {
             width = Width_Of_Plane(0, 0, i, 0, points);
             if (width < min_X_width)
                 min_X_width = width;
         }
         float maxZ = 0;
-        for (int i=0; i< zes.length; i++)
-        {
+        for (int i = 0; i < zes.length; i++) {
             if (zes[i] > maxZ)
                 maxZ = zes[i];
         }
-        width = 0;
         float min_Z_width = 10000;
-        for (float i=0; i<maxZ - 1; i+=0.1)
-        {
-            width = Width_Of_Plane(0, 0, i, 0, points);
+        for (float i = -maxZ + 1; i < maxZ - 1; i += 0.1) {
+            width = Width_Of_Plane(0, 0, 0, i, points);
             if (width < min_Z_width)
                 min_Z_width = width;
         }

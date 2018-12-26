@@ -1,4 +1,4 @@
-package com.example.t8367330.prol;
+package com.google.ar.core.examples.java.helloar;
 
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;

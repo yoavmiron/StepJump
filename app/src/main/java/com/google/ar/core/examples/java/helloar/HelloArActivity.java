@@ -300,6 +300,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             // important
             Map<Integer, Object> output = ocd.detect(bitmap);
 
+
+
             //#############################################
 
 
