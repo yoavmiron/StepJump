@@ -16,6 +16,7 @@
 
 package com.google.ar.core.examples.java.helloar;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -68,6 +69,7 @@ import android.graphics.Rect;
 
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -97,6 +99,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private final ObjectRenderer virtualObjectShadow = new ObjectRenderer();
     private final PlaneRenderer planeRenderer = new PlaneRenderer();
     private final PointCloudRenderer pointCloudRenderer = new PointCloudRenderer();
+    private OCD ocd;
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
@@ -132,6 +135,16 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         surfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0); // Alpha used for plane blending.
         surfaceView.setRenderer(this);
         surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+
+        try {
+            ocd = OCD.create(getAssets(),
+                    "mobilenet_v1_1.0_224.tflite",
+                    "labels_imagenet_slim.txt",
+                    224,
+                    false);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         installRequested = false;
     }
@@ -290,15 +303,10 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
             //#############################################
             // OCD CODE
-            OCD ocd = OCD.create(getAssets(),
-                    "mobilenet_v1_1.0_224.tflite",
-                    "labels_imagenet_slim.txt",
-                    224,
-                    false);
 
 
             // important
-            ArrayList<OCD.Recognition> recognitions = ocd.detect(frame.acquireCameraImage());
+            //ArrayList<OCD.Recognition> recognitions = ocd.detect(frame.acquireCameraImage());
 
 
             //#############################################
@@ -307,16 +315,18 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             //#############################################
             // AR CODE
 
-            ArrayList<Plane> planes = (ArrayList<Plane>) session.getAllTrackables(Plane.class);
-            Plane floor = AR.getFloor(planes, camera);
+            Collection<Plane> planes = session.getAllTrackables(Plane.class);
+            ArrayList<Plane> ALPlanes = new ArrayList<>(planes);
+            Plane floor = AR.getFloor(ALPlanes, camera);
             // important
             float floorWidth = -1.0f;
             if (floor != null) {
                 floorWidth = AR.find_width(floor);
             }
 
+
             // important
-            float[] object_widths = new float[recognitions.size()];
+            /**float[] object_widths = new float[recognitions.size()];
             float[] center_of_objects = new float[recognitions.size()];
 
             for (int i = 0; i < recognitions.size(); i++) {
@@ -333,7 +343,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                 center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
                 // somekind of show: width of lable is object_widths[i]
                 // somekind of show: distance of lable from phone is center_of_objects[i]
-            }
+            }*/
 
 
             //#############################################
