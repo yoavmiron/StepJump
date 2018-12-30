@@ -250,8 +250,8 @@ public class AR {
         }
         float width;
         float min_X_width = 10000;
-        for (float i = -maxX + 0.5f; i <= maxX - 0.5f; i += 0.1) {
-            width = Width_Of_Plane(0, 0, 0, i, points);
+        for (float i = -maxX + 1.0f; i <= maxX - 1.0f; i += 0.1) {
+            width = Width_Of_Plane(0, 0, i, 0, points);
             if (width < min_X_width)
                 min_X_width = width;
         }
@@ -261,8 +261,8 @@ public class AR {
                 maxZ = zes[i];
         }
         float min_Z_width = 10000;
-        for (float i = -maxZ + 0.5f; i < maxZ - 0.5f; i += 0.1) {
-            width = Width_Of_Plane(0, 0, i, 0, points);
+        for (float i = -maxZ + 1.0f; i < maxZ - 1.0f; i += 0.1) {
+            width = Width_Of_Plane(0, 0, 0, i, points);
             if (width < min_Z_width)
                 min_Z_width = width;
         }

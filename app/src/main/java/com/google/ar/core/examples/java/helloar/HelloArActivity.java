@@ -315,8 +315,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             //#############################################
             // AR CODE
 
-            Collection<Plane> planes = session.getAllTrackables(Plane.class);
-            ArrayList<Plane> ALPlanes = new ArrayList<>(planes);
+            ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
             Plane floor = AR.getFloor(ALPlanes, camera);
             // important
             float floorWidth = -1.0f;
@@ -424,6 +423,14 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private void handleTap(Frame frame, Camera camera) {
         MotionEvent tap = tapHelper.poll();
         if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
+            ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
+            Plane floor = AR.getFloor(ALPlanes, camera);
+            // important
+            float floorWidth = -1.0f;
+            if (floor != null) {
+                floorWidth = AR.find_width(floor);
+            }
+            System.out.print(7);
             for (HitResult hit : frame.hitTest(tap)) {
                 // Check if any plane was hit, and if it was hit inside the plane polygon
                 Trackable trackable = hit.getTrackable();
