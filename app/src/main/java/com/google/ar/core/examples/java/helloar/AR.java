@@ -222,8 +222,7 @@ public class AR {
         TwoDLine l = TwoDLine.Create_From_Two_Points(x1, z1, x2, z2);
         TwoDLine vertical = l.Vertical(x2, z2);
         TwoDLine[] lines = vertical.find_lines(polygon_vertices);
-        float width = TwoDLine.Distance_Between_Intersections(vertical, lines[0], lines[1]);
-        return width;
+        return TwoDLine.Distance_Between_Intersections(vertical, lines[0], lines[1]);
     }
 
     /**
