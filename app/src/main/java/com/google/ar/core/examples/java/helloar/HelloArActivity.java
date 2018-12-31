@@ -32,6 +32,7 @@ import com.google.ar.core.Plane;
 import com.google.ar.core.Point;
 import com.google.ar.core.Point.OrientationMode;
 import com.google.ar.core.PointCloud;
+import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
@@ -384,4 +385,24 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
       }
     }
   }
+
+    public static float Find_Rotation_Between_Coordinates(Plane p, PointCloud cloud) {
+        float[] points = TwoDLine.filter_plane_points(cloud, p.getCenterPose().ty());
+        float x_center_pose = p.getCenterPose().tx();
+        float z_center_pose = p.getCenterPose().tz();
+        float[] point = TwoDLine.find_point_with_max_distance(x_center_pose, z_center_pose, points);
+        return TwoDLine.Get_Rotation_Angle(x_center_pose, z_center_pose, point[0], point[1]);
+    }
+
+    public static float[] Convert_Point_From_Reality_to_Plane(Plane plane , PointCloud cloud, Pose point)
+    {
+        /*
+        Main!!!
+         */
+        float angle = Find_Rotation_Between_Coordinates(plane,cloud);
+        float xp = (float)(point.tx()*Math.cos(angle)-point.tz()*Math.sin(angle));
+        float zp = (float)(point.tx()*Math.sin(angle)+point.tz()*(Math.cos(angle)));
+        return new float[] {xp,zp};
+    }
+
 }
