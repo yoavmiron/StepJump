@@ -413,6 +413,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                 virtualObjectShadow.draw(viewmtx, projmtx, colorCorrectionRgba, coloredAnchor.color);
             }
 
+
         } catch (Throwable t) {
             // Avoid crashing the application due to unhandled exceptions.
             Log.e(TAG, "Exception on the OpenGL thread", t);
