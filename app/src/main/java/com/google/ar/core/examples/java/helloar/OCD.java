@@ -145,7 +145,7 @@ public class OCD
         } else {
             numBytesPerChannel = 4; // Floating point
         }
-        ocd.imgData = ByteBuffer.allocateDirect(1 * inputSize * inputSize * 3 * numBytesPerChannel);
+        ocd.imgData = ByteBuffer.allocateDirect(inputSize * inputSize * 3 * numBytesPerChannel);
         ocd.imgData.order(ByteOrder.nativeOrder());
         ocd.outputLocations = new float[1][NUM_DETECTIONS][4];
         ocd.outputClasses = new float[1][NUM_DETECTIONS];
@@ -157,7 +157,7 @@ public class OCD
     public ArrayList<Recognition> detect(final Image image)
     {
         Bitmap bitmap = prepareImage(image);
-        croppedBitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+        croppedBitmap.getPixels(intValues, 0, croppedBitmap.getWidth(), 0, 0, croppedBitmap.getWidth(), croppedBitmap.getHeight());
         imgData.rewind();
         for (int i = 0; i < inputSize; ++i) {
             for (int j = 0; j < inputSize; ++j) {
