@@ -1,6 +1,9 @@
 apply plugin: 'com.android.application'
 
 android {
+    aaptOptions {
+        noCompress "tflite"
+    }
     compileSdkVersion 27
     defaultConfig {
         applicationId "com.google.ar.core.examples.java.helloar"

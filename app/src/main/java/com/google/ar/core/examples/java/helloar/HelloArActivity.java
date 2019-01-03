@@ -27,6 +27,7 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.widget.Toast;
 
 import com.google.ar.core.Anchor;
@@ -117,6 +118,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     }
 
     private final ArrayList<ColoredAnchor> anchors = new ArrayList<>();
+    private boolean createdOCD = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -135,16 +137,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         surfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0); // Alpha used for plane blending.
         surfaceView.setRenderer(this);
         surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
-
-        try {
-            ocd = OCD.create(getAssets(),
-                    "mobilenet_v1_1.0_224.tflite",
-                    "labels_imagenet_slim.txt",
-                    224,
-                    false);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
 
         installRequested = false;
     }
@@ -300,13 +292,24 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             // camera framerate.
             Frame frame = session.update();
             Camera camera = frame.getCamera();
-
-            //#############################################
             // OCD CODE
-
+            if(!createdOCD) {
+                try {
+                    ocd = OCD.create(getAssets(),
+                            "mobilenet_v1_1.0_224_quant.tflite",
+                            "labels_imagenet_slim.txt",
+                            224,
+                            false, frame.acquireCameraImage().getWidth(),
+                            frame.acquireCameraImage().getHeight(),
+                            displayRotationHelper.getRotation() - getScreenOrientation());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                createdOCD = true;
+            }
 
             // important
-            //ArrayList<OCD.Recognition> recognitions = ocd.detect(frame.acquireCameraImage());
+            ArrayList<OCD.Recognition> recognitions = ocd.detect(frame.acquireCameraImage());
 
 
             //#############################################
@@ -470,6 +473,19 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     break;
                 }
             }
+        }
+    }
+
+    protected int getScreenOrientation() {
+        switch (getWindowManager().getDefaultDisplay().getRotation()) {
+            case Surface.ROTATION_270:
+                return 270;
+            case Surface.ROTATION_180:
+                return 180;
+            case Surface.ROTATION_90:
+                return 90;
+            default:
+                return 0;
         }
     }
 }

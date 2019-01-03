@@ -4,7 +4,9 @@ import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.YuvImage;
@@ -29,6 +31,8 @@ public class OCD
 {
     // Only return this many results.
     private static final int NUM_DETECTIONS = 10;
+    private final int height;
+    private final int width;
     private boolean isModelQuantized;
     // Float model
     private static final float IMAGE_MEAN = 128.0f;
@@ -53,9 +57,19 @@ public class OCD
     // contains the number of detected boxes
     private float[] numDetections;
 
+    int cropSize = 300;
+
     private ByteBuffer imgData;
 
     private Interpreter tfLite;
+
+    private Bitmap rgbFrameBitmap = null;
+    private Bitmap croppedBitmap = null;
+    private Bitmap cropCopyBitmap = null;
+    private Matrix frameTocropTransform;
+    private Matrix cropToFrameTransform;
+    private Runnable imageConverter;
+    private int[] rgbBytes = null;
 
     /**
      * Class that represents a recognition in an image
@@ -88,15 +102,29 @@ public class OCD
     }
 
 
-    private OCD() {}
+    private OCD(int width, int height, int orientation)
+    {
+        this.width = width;
+        this.height = height;
+        rgbFrameBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        croppedBitmap = Bitmap.createBitmap(cropSize, cropSize, Bitmap.Config.ARGB_8888);
+        frameTocropTransform = ImageUtils.getTransformationMatrix(width, height, cropSize, cropSize,
+                orientation, false);
+        cropToFrameTransform = new Matrix();
+        frameTocropTransform.invert(cropToFrameTransform);
+        rgbBytes = new int[width * height];
+    }
 
     public static OCD create(final AssetManager assetManager,
         final String modelFilename,
         final String labelFilename,
         final int inputSize,
-        final boolean isQuantized) throws IOException
+        final boolean isQuantized,
+        final int width,
+        final int height,
+        final int orientation) throws IOException
     {
-        final OCD ocd = new OCD();
+        final OCD ocd = new OCD(width, height, orientation);
         ocd.tfLite = new Interpreter(loadModelFile(assetManager, modelFilename));
         ocd.tfLite.setNumThreads(NUM_THREADS);
         BufferedReader br = null;
@@ -129,7 +157,7 @@ public class OCD
     public ArrayList<Recognition> detect(final Image image)
     {
         Bitmap bitmap = prepareImage(image);
-        bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+        croppedBitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
         imgData.rewind();
         for (int i = 0; i < inputSize; ++i) {
             for (int j = 0; j < inputSize; ++j) {
@@ -211,6 +239,17 @@ public class OCD
         cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity());
         cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity());
         cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity());
+
+        ImageUtils.convertYUV420SPToARGB8888(compositeByteArray, width, height, rgbBytes);
+        rgbFrameBitmap.setPixels(rgbBytes, 0, width, 0, 0, width, height);
+        final Canvas canvas = new Canvas(croppedBitmap);
+        canvas.drawBitmap(rgbFrameBitmap, frameTocropTransform, null);
+//        imageConverter = new Runnable() {
+//            @Override
+//            public void run() {
+//                ImageUtils.convertYUV420SPToARGB8888();
+//            }
+//        }
 
         ByteArrayOutputStream baOutputStream = new ByteArrayOutputStream();
         YuvImage yuvImage = new YuvImage(compositeByteArray, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
