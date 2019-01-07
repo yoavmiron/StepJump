@@ -28,6 +28,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.Surface;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.ar.core.Anchor;
@@ -120,6 +121,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     private final ArrayList<ColoredAnchor> anchors = new ArrayList<>();
     private boolean createdOCD = false;
+    private TextView textView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -138,6 +140,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         surfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 0); // Alpha used for plane blending.
         surfaceView.setRenderer(this);
         surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+
+        textView = findViewById(R.id.textView);
 
         installRequested = false;
     }
@@ -326,12 +330,20 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     //#############################################
                     // AR CODE
 
+                    String message = " ";
+
                     ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
                     Plane floor = AR.getFloor(ALPlanes, camera);
                     // important
                     float floorWidth = -1.0f;
                     if (floor != null) {
                         floorWidth = AR.find_width(floor);
+                        if(floorWidth < 10)
+                        {
+                            message += "Floor width ";
+                            message += floorWidth;
+                            message += '\n';
+                        }
                     }
 
 
@@ -361,6 +373,14 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         // somekind of show: width of lable is object_widths[i]
                         // somekind of show: distance of lable from phone is center_of_objects[i]
                     }
+                    if(object_widths.length != 0 && object_widths[0] != -1)
+                    {
+                        message += "width of ";
+                        message += recognitions.get(0).label;
+                        message += " is ";
+                        message += object_widths[0];
+                    }
+                    textView.setText(message);
 
                 } catch (Throwable t) {
                     System.out.print(7);

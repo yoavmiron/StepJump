@@ -158,13 +158,15 @@ public class AR {
         }
         // set the minimal distance to be too large
         float minDistance = 300.0f;
+        float sumDistance = 0.0f;
         for (HitResult hit1 : hits1) {
             for (HitResult hit2 : hits2) {
                 float distance = distanceBetweenPoses(hit1.getHitPose(), hit2.getHitPose());
                 minDistance = (distance < minDistance) ? distance : minDistance;
+                sumDistance += distance;
             }
         }
-        return minDistance;
+        return sumDistance / hits1.size() / hits2.size();
     }
 
     /**
