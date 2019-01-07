@@ -109,7 +109,7 @@ public class OCD
         rgbFrameBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         croppedBitmap = Bitmap.createBitmap(cropSize, cropSize, Bitmap.Config.ARGB_8888);
         frameTocropTransform = ImageUtils.getTransformationMatrix(width, height, cropSize, cropSize,
-                orientation, false);
+                orientation + 90, false);
         cropToFrameTransform = new Matrix();
         frameTocropTransform.invert(cropToFrameTransform);
         rgbBytes = new int[width * height];
@@ -156,7 +156,7 @@ public class OCD
 
     public ArrayList<Recognition> detect(final Image image)
     {
-        Bitmap bitmap = prepareImage(image);
+        prepareImage(image);
         croppedBitmap.getPixels(intValues, 0, croppedBitmap.getWidth(), 0, 0, croppedBitmap.getWidth(), croppedBitmap.getHeight());
         imgData.rewind();
         for (int i = 0; i < inputSize; ++i) {
@@ -229,7 +229,7 @@ public class OCD
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
     }
 
-    private Bitmap prepareImage(final Image image)
+    private void prepareImage(final Image image)
     {
         ByteBuffer cameraPlaneY = image.getPlanes()[0].getBuffer();
         ByteBuffer cameraPlaneU = image.getPlanes()[1].getBuffer();
@@ -237,8 +237,10 @@ public class OCD
 
         byte[] compositeByteArray = new byte[cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity()];
         cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity());
-        cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity());
-        cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity());
+        cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneV.capacity());
+        cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneV.capacity(), cameraPlaneU.capacity());
+//        cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity());
+//        cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity());
 
         ImageUtils.convertYUV420SPToARGB8888(compositeByteArray, width, height, rgbBytes);
         rgbFrameBitmap.setPixels(rgbBytes, 0, width, 0, 0, width, height);
@@ -250,12 +252,12 @@ public class OCD
 //                ImageUtils.convertYUV420SPToARGB8888();
 //            }
 //        }
-
-        ByteArrayOutputStream baOutputStream = new ByteArrayOutputStream();
-        YuvImage yuvImage = new YuvImage(compositeByteArray, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
-        yuvImage.compressToJpeg(new Rect(0, 0, image.getWidth(), image.getHeight()), 75, baOutputStream);
-        byte[] byteForBitmap = baOutputStream.toByteArray();
-        Bitmap b =  BitmapFactory.decodeByteArray(byteForBitmap, 0, byteForBitmap.length);
-        return Bitmap.createScaledBitmap(b, inputSize, inputSize, false);
+//
+//        ByteArrayOutputStream baOutputStream = new ByteArrayOutputStream();
+//        YuvImage yuvImage = new YuvImage(compositeByteArray, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
+//        yuvImage.compressToJpeg(new Rect(0, 0, image.getWidth(), image.getHeight()), 75, baOutputStream);
+//        byte[] byteForBitmap = baOutputStream.toByteArray();
+//        Bitmap b =  BitmapFactory.decodeByteArray(byteForBitmap, 0, byteForBitmap.length);
+//        return Bitmap.createScaledBitmap(b, inputSize, inputSize, false);
     }
 }

@@ -101,6 +101,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private final PlaneRenderer planeRenderer = new PlaneRenderer();
     private final PointCloudRenderer pointCloudRenderer = new PointCloudRenderer();
     private OCD ocd;
+    private long counter = 0;
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
@@ -292,62 +293,79 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             // camera framerate.
             Frame frame = session.update();
             Camera camera = frame.getCamera();
-            // OCD CODE
-            if(!createdOCD) {
+            counter++;
+            if(counter % 20 == 0) {
                 try {
-                    ocd = OCD.create(getAssets(),
-                            "mobilenet_v1_1.0_224_quant.tflite",
-                            "labels_imagenet_slim.txt",
-                            224,
-                            false, frame.acquireCameraImage().getWidth(),
-                            frame.acquireCameraImage().getHeight(),
-                            displayRotationHelper.getRotation() - getScreenOrientation());
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    Image image = frame.acquireCameraImage();
+                    // OCD CODE
+                    if (!createdOCD) {
+                        try {
+                            ocd = OCD.create(getAssets(),
+                                    "detect.tflite",
+                                    "coco_labels_list.txt",
+                                    300,
+                                    true, image.getWidth(),
+                                    image.getHeight(),
+                                    displayRotationHelper.getRotation() - getScreenOrientation());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        createdOCD = true;
+                    }
+
+                    // important
+                    ArrayList<OCD.Recognition> recognitions = ocd.detect(image);
+                    int height = image.getHeight();
+                    int width = image.getWidth();
+                    image.close();
+
+
+                    //#############################################
+
+
+                    //#############################################
+                    // AR CODE
+
+                    ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
+                    Plane floor = AR.getFloor(ALPlanes, camera);
+                    // important
+                    float floorWidth = -1.0f;
+                    if (floor != null) {
+                        floorWidth = AR.find_width(floor);
+                    }
+
+
+                    // important
+                    float[] object_widths = new float[recognitions.size()];
+                    float[] center_of_objects = new float[recognitions.size()];
+//
+                    for (int i = 0; i < recognitions.size(); i++) {
+                        float top = recognitions.get(i).location.top * (float) height;
+                        float bottom = recognitions.get(i).location.bottom * (float) height;
+                        float left = recognitions.get(i).location.left * (float) height;
+                        float right = recognitions.get(i).location.right * (float) height;
+                        top = top > height - 1 ? height - 1 : top;
+                        top = top < 0 ? 0 : top;
+                        bottom = bottom > height - 1 ? height - 1 : bottom;
+                        bottom = bottom < 0 ? 0 : bottom;
+                        left = left > width - 1 ? width - 1 : left;
+                        left = left < 0 ? 0 : left;
+                        right = right > width - 1 ? width - 1 : right;
+                        right = right < 0 ? 0 : right;
+                        float[] pixel1 = {left, bottom};
+                        float[] pixel2 = {right, bottom};
+                        float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
+                        object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
+                        center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
+                        System.out.print(7);
+                        // somekind of show: width of lable is object_widths[i]
+                        // somekind of show: distance of lable from phone is center_of_objects[i]
+                    }
+
+                } catch (Throwable t) {
+                    System.out.print(7);
                 }
-                createdOCD = true;
             }
-
-            // important
-            ArrayList<OCD.Recognition> recognitions = ocd.detect(frame.acquireCameraImage());
-
-
-            //#############################################
-
-
-            //#############################################
-            // AR CODE
-
-            ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
-            Plane floor = AR.getFloor(ALPlanes, camera);
-            // important
-            float floorWidth = -1.0f;
-            if (floor != null) {
-                floorWidth = AR.find_width(floor);
-            }
-
-
-            // important
-            /**float[] object_widths = new float[recognitions.size()];
-            float[] center_of_objects = new float[recognitions.size()];
-
-            for (int i = 0; i < recognitions.size(); i++) {
-                int height = frame.acquireCameraImage().getHeight();
-                int width = frame.acquireCameraImage().getWidth();
-                float top = recognitions.get(i).location.top * height;
-                float bottom = recognitions.get(i).location.bottom * height;
-                float left = recognitions.get(i).location.left * width;
-                float right = recognitions.get(i).location.right * width;
-                float[] pixel1 = {left, bottom};
-                float[] pixel2 = {right, bottom};
-                float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
-                object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
-                center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
-                // somekind of show: width of lable is object_widths[i]
-                // somekind of show: distance of lable from phone is center_of_objects[i]
-            }*/
-
-
             //#############################################
 
 
