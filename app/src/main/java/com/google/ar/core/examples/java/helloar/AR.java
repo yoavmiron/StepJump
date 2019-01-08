@@ -8,7 +8,9 @@ import com.google.ar.core.Pose;
 
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ConcurrentMap;
 
 public class AR {
     /**
@@ -159,14 +161,24 @@ public class AR {
         // set the minimal distance to be too large
         float minDistance = 300.0f;
         float sumDistance = 0.0f;
+        ArrayList<Float> distances = new ArrayList<>();
         for (HitResult hit1 : hits1) {
             for (HitResult hit2 : hits2) {
                 float distance = distanceBetweenPoses(hit1.getHitPose(), hit2.getHitPose());
+                distances.add(distance);
                 minDistance = (distance < minDistance) ? distance : minDistance;
                 sumDistance += distance;
             }
         }
-        return sumDistance / hits1.size() / hits2.size();
+        Comparator<Float> c = (a, b) -> {
+            if (a > b) {
+                return 1;
+            }
+            return a.equals(b) ? 0 : -1;
+        };
+        distances.sort(c);
+        return distances.get(distances.size() / 2);
+        //return sumDistance / hits1.size() / hits2.size();
     }
 
     /**
@@ -251,7 +263,7 @@ public class AR {
         }
         float width;
         float min_X_width = 10000;
-        for (float i = -maxX + 1.0f; i <= maxX - 1.0f; i += 0.1) {
+        for (float i = -maxX + 0.5f; i <= maxX - 0.5f; i += 0.1) {
             width = Width_Of_Plane(0, 0, i, 0, points);
             if (width < min_X_width)
                 min_X_width = width;
@@ -262,7 +274,7 @@ public class AR {
                 maxZ = zes[i];
         }
         float min_Z_width = 10000;
-        for (float i = -maxZ + 1.0f; i < maxZ - 1.0f; i += 0.1) {
+        for (float i = -maxZ + 0.5f; i < maxZ - 0.5f; i += 0.1) {
             width = Width_Of_Plane(0, 0, 0, i, points);
             if (width < min_Z_width)
                 min_Z_width = width;

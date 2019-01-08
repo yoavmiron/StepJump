@@ -298,7 +298,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             Frame frame = session.update();
             Camera camera = frame.getCamera();
             counter++;
-            if(counter % 20 == 0) {
+            if (counter % 20 == 0) {
                 try {
                     Image image = frame.acquireCameraImage();
                     // OCD CODE
@@ -338,8 +338,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     float floorWidth = -1.0f;
                     if (floor != null) {
                         floorWidth = AR.find_width(floor);
-                        if(floorWidth < 10)
-                        {
+                        if (floorWidth < 10) {
                             message += "Floor width ";
                             message += floorWidth;
                             message += '\n';
@@ -373,14 +372,15 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         // somekind of show: width of lable is object_widths[i]
                         // somekind of show: distance of lable from phone is center_of_objects[i]
                     }
-                    if(object_widths.length != 0 && object_widths[0] != -1)
-                    {
+                    if (object_widths.length != 0 && object_widths[0] != -1) {
                         message += "width of ";
                         message += recognitions.get(0).label;
                         message += " is ";
                         message += object_widths[0];
                     }
-                    textView.setText(message);
+                    if (!message.equals("")) {
+                        textView.setText(message);
+                    }
 
                 } catch (Throwable t) {
                     System.out.print(7);
