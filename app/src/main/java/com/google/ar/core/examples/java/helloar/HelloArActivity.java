@@ -861,6 +861,51 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
      * @param objects all objects found
      * @return index of object in objects in which the anchor is placed
      */
+    public static float[] Convert_Point_From_Reality_to_Plane_Given_Angle(float angle, Pose point)
+    {
+/*
+Main!!!
+ */
+        float xp = (float)(point.tx()*Math.cos(angle)-point.tz()*Math.sin(angle));
+        float zp = (float)(point.tx()*Math.sin(angle)+point.tz()*(Math.cos(angle)));
+        return new float[] {xp,zp};
+    }
+
+
+    private float[] four_points_of_object(Plane plane, ArrayList<float[]> object_points,PointCloud cloud)
+    {
+        float angle = Find_Rotation_Between_Coordinates(plane,cloud);
+        float[] min_z_p = new float[2], max_z_p=new float[2], min_x_p = new float[2], max_x_p = new float[2];
+        for(float[] p: object_points)
+        {
+            float[] point_in_plane_system = Convert_Point_From_Reality_to_Plane_Given_Angle(angle,new Pose(p,new float[]{0,0,0,0}));
+            float x = point_in_plane_system[0], z = point_in_plane_system[1];
+            if (x>max_x_p[0])
+            {
+                max_x_p[0]=x;
+                max_x_p[1]=z;
+            }
+            if (x<min_x_p[0])
+            {
+                min_x_p[0]=x;
+                min_x_p[1]=z;
+            }
+            if (z>max_z_p[1])
+            {
+                max_z_p[0]=x;
+                max_z_p[1]=z;
+            }
+            if (z<min_z_p[1])
+            {
+                min_z_p[0]=x;
+                min_z_p[1]=z;
+            }
+        }
+        return new float[]{min_x_p[0],min_x_p[1],min_z_p[0],min_z_p[1],max_x_p[0],max_x_p[1],max_z_p[0],max_z_p[1]};
+    }
+
+‫
+
     private int getIndexOfObject(float[] point, ArrayList<ArrayList<float[]>> objects) {
         for (ArrayList<float[]> object : objects) {
             boolean contains = false;

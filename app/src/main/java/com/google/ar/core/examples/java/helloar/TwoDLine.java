@@ -235,6 +235,55 @@ public class TwoDLine {
         return min_X_width < min_Z_width ? min_X_width : min_Z_width;
     }
 
+    public static float[] filter_plane_points(PointCloud cloud, float plane_y)
+    {
+
+        float[] points_on_plane = new float[cloud.getPoints().array().length];
+        int index=0;
+        for (int i =0; i<cloud.getPoints().array().length;i+=4) {
+            float dy = cloud.getPoints().array()[i + 1] - plane_y;
+            if (dy <= 0.2 && dy >= -0.2) {
+                points_on_plane[index] = cloud.getPoints().array()[i];//x
+                points_on_plane[index+1] = cloud.getPoints().array()[i+2];//z
+                index+=2;
+            }
+        }
+        float[] filtered = new float[index];
+        for (int i =0; i<index;i++)
+        {
+            filtered[i]=points_on_plane[i];
+        }
+        return filtered;
+    }
+
+    public static float[] find_point_with_max_distance(float x_center_pose,float z_center_pose,float[] points)
+    {
+        //points - array of [x1,z1,x2,z2...]
+        float max_distance = 0;
+        float disance;
+        float[] max_dist_point = new float[2];
+        for (int i =2; i<points.length; i+=2)
+        {
+            disance=TwoDLine.Distance_Between_Points(x_center_pose,z_center_pose,points[i],points[i+1]);
+            if (disance>max_distance)
+            {
+                max_dist_point[0]=points[i];//x
+                max_dist_point[1]=points[i+1];//z
+                max_distance = disance;
+            }
+        }
+        return max_dist_point;
+    }
+
+    public static float Get_Rotation_Angle(float x_center_pose,float z_center_pose, float x_p, float z_p,Plane plane)
+    {
+        float x_r = x_p-x_center_pose;
+        float z_r = z_p-z_center_pose;
+        float[] farrest_from_polygon = TwoDLine.find_point_with_max_distance(0,0,plane.getPolygon().array());
+        float xp = farrest_from_polygon[0];
+        float zp = farrest_from_polygon[1];
+        return (float)Math.asin((z_p-z_r*x_p/x_r)/(x_r+z_r*z_r/x_r));
+    }
 
 }
 
