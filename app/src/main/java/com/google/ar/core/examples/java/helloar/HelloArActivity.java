@@ -872,39 +872,53 @@ Main!!!
     }
 
 
+    private float convert_bool_to_float(boolean bool)
+    {
+        if (bool)
+            return 1;
+        else
+            return 0;
+    }
+
+
     private float[] four_points_of_object(Plane plane, ArrayList<float[]> object_points,PointCloud cloud)
     {
         float angle = Find_Rotation_Between_Coordinates(plane,cloud);
-        float[] min_z_p = new float[2], max_z_p=new float[2], min_x_p = new float[2], max_x_p = new float[2];
+        float[] min_z_p = new float[3], max_z_p=new float[3], min_x_p = new float[3], max_x_p = new float[3];
         for(float[] p: object_points)
         {
-            float[] point_in_plane_system = Convert_Point_From_Reality_to_Plane_Given_Angle(angle,new Pose(p,new float[]{0,0,0,0}));
+            Pose pose = new Pose(p,new float[]{0,0,0,0});
+            float[] point_in_plane_system = Convert_Point_From_Reality_to_Plane_Given_Angle(angle,pose);
             float x = point_in_plane_system[0], z = point_in_plane_system[1];
             if (x>max_x_p[0])
             {
                 max_x_p[0]=x;
                 max_x_p[1]=z;
+                max_x_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
             }
             if (x<min_x_p[0])
             {
                 min_x_p[0]=x;
                 min_x_p[1]=z;
+                min_x_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
             }
             if (z>max_z_p[1])
             {
                 max_z_p[0]=x;
                 max_z_p[1]=z;
+                max_z_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
             }
             if (z<min_z_p[1])
             {
                 min_z_p[0]=x;
                 min_z_p[1]=z;
+                min_z_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
             }
         }
-        return new float[]{min_x_p[0],min_x_p[1],min_z_p[0],min_z_p[1],max_x_p[0],max_x_p[1],max_z_p[0],max_z_p[1]};
+        float [] to_ret = new float[13];
+        float points_inside = min_x_p[2]+max_x_p[2]+max_z_p[2]+min_z_p[2];
+        return new float[]{points_inside,min_x_p[0],min_x_p[1],min_x_p[2],min_z_p[0],min_z_p[1],min_z_p[2],max_x_p[0],max_x_p[1],max_x_p[2],max_z_p[0],max_z_p[1],max_z_p[2]};
     }
-
-‫
 
     private int getIndexOfObject(float[] point, ArrayList<ArrayList<float[]>> objects) {
         for (ArrayList<float[]> object : objects) {
@@ -995,9 +1009,25 @@ Main!!!
             else
             {
                 float[] real_object = four_points_of_object(plane, object, cloud);
-                float[][] sorted = sort_points(polygon, real_object);
-                float[] pointsIn = sorted[0];
-                float[] pointsOut = sorted[1];
+                float[] pointsIn = new float[2* (int)real_object[0]];
+                int inCounter = 0;
+                int outCounter = 0;
+                float[] pointsOut = new float[8-(2* (int)real_object[0])];
+                for (int i=1; i< real_object.length; i+=3)
+                {
+                    if (real_object[i+2] == 0)
+                    {
+                        pointsIn[inCounter] = real_object[i];
+                        pointsIn[inCounter+1] = real_object[i+1];
+                        inCounter += 2;
+                    }
+                    else
+                    {
+                        pointsOut[outCounter] = real_object[i];
+                        pointsOut[outCounter+1] = real_object[i+1];
+                        outCounter += 2;
+                    }
+                }
                 polygon = cut_plane_points_inside(polygon, pointsIn, pointsOut);
             }
         }
