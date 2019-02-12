@@ -922,6 +922,44 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         float zp = (float) (point.tx() * Math.sin(angle) + point.tz() * (Math.cos(angle)));
         return new float[]{xp, zp};
     }
+    private float merge_plane_width (PointCloud cloud, Plane plane, float[] polygon, ArrayList<ArrayList<float[]>> objects) {
+        float[][] objectsInside = new float[0][0];
+        for (ArrayList<float[]> object : objects)
+        {
+            boolean allOut = true;
+            boolean allIn = true;
+            for (float[] point: object) {
+                float[] poseCoordiantes = new float[3];
+                poseCoordiantes[0] = point[0];
+                poseCoordiantes[1] = point[1];
+                poseCoordiantes[2] = point[2];
+                float[] fakeQuaternions = new float[4];
+                fakeQuaternions[0] = 0;
+                fakeQuaternions[1] = 0;
+                fakeQuaternions[2] = 1;
+                fakeQuaternions[3] = 0;
+                Pose pose = new Pose(poseCoordiantes,fakeQuaternions);
+                if (plane.isPoseInPolygon(pose))
+                    allOut = false;
+                else
+                    allIn = false;
+            }
+            if (allIn || allOut) {
+                objects.remove(object);
+            }
+            else
+            {
+                float[] real_object = four_points_of_object(plane, object, cloud);
+                float[][] sorted = sort_points(polygon, real_object);
+                float[] pointsIn = sorted[0];
+                float[] pointsOut = sorted[1];
+                polygon = cut_plane_points_inside(polygon, pointsIn, pointsOut);
+            }
+        }
+        float Xdistance = findFinalDistance(polygon,objectsInside,'x');
+        float Zdistance = findFinalDistance(polygon, objectsInside, 'z');
+        return Math.min(Xdistance, Zdistance);
+    }
 
 }
 
