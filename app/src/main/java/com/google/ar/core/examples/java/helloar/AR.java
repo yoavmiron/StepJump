@@ -1,5 +1,7 @@
 package com.google.ar.core.examples.java.helloar;
 
+import android.view.MotionEvent;
+
 import com.google.ar.core.Camera;
 import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
@@ -176,9 +178,9 @@ public class AR {
             }
             return a.equals(b) ? 0 : -1;
         };
-        distances.sort(c);
-        return distances.get(distances.size() / 2);
-        //return sumDistance / hits1.size() / hits2.size();
+        //distances.sort(c);
+        //return distances.get(0);
+        return sumDistance / hits1.size() / hits2.size();
     }
 
     /**

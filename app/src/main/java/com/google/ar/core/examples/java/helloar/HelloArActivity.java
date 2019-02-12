@@ -212,7 +212,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         surfaceView.onResume();
         displayRotationHelper.onResume();
 
-        messageSnackbarHelper.showMessage(this, "Searching for surfaces...");
+//        messageSnackbarHelper.showMessage(this, "Searching for surfaces...");
     }
 
     @Override
@@ -305,10 +305,10 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     if (!createdOCD) {
                         try {
                             ocd = OCD.create(getAssets(),
-                                    "detect.tflite",
-                                    "coco_labels_list.txt",
+                                    "model.tflite",
+                                    "labels.txt",
                                     300,
-                                    true, image.getWidth(),
+                                    false, image.getWidth(),
                                     image.getHeight(),
                                     displayRotationHelper.getRotation() - getScreenOrientation());
                         } catch (IOException e) {
@@ -353,8 +353,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     for (int i = 0; i < recognitions.size(); i++) {
                         float top = recognitions.get(i).location.top * (float) height;
                         float bottom = recognitions.get(i).location.bottom * (float) height;
-                        float left = recognitions.get(i).location.left * (float) height;
-                        float right = recognitions.get(i).location.right * (float) height;
+                        float left = recognitions.get(i).location.left * (float) width;
+                        float right = recognitions.get(i).location.right * (float) width;
                         top = top > height - 1 ? height - 1 : top;
                         top = top < 0 ? 0 : top;
                         bottom = bottom > height - 1 ? height - 1 : bottom;
@@ -372,11 +372,14 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         // somekind of show: width of lable is object_widths[i]
                         // somekind of show: distance of lable from phone is center_of_objects[i]
                     }
-                    if (object_widths.length != 0 && object_widths[0] != -1) {
+                    if (object_widths.length != 0 && object_widths[0] != -1 && recognitions.get(0).confidence > 0.7) {
                         message += "width of ";
                         message += recognitions.get(0).label;
                         message += " is ";
                         message += object_widths[0];
+                    } else if (object_widths.length != 0 && recognitions.get(0).confidence > 0.7) {
+                        message += "recognized a ";
+                        message += recognitions.get(0).label;
                     }
                     if (!message.equals("")) {
                         textView.setText(message);
@@ -427,7 +430,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             if (messageSnackbarHelper.isShowing()) {
                 for (Plane plane : session.getAllTrackables(Plane.class)) {
                     if (plane.getTrackingState() == TrackingState.TRACKING) {
-                        messageSnackbarHelper.hide(this);
+                        //messageSnackbarHelper.hide(this);
                         break;
                     }
                 }
@@ -464,16 +467,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private void handleTap(Frame frame, Camera camera) {
         MotionEvent tap = tapHelper.poll();
         if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
-
-            ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
-            Plane floor = AR.getFloor(ALPlanes, camera);
-            // important
-            float floorWidth = -1.0f;
-            if (floor != null) {
-                floorWidth = AR.find_width(floor);
-            }
-            System.out.print(7);
-
             for (HitResult hit : frame.hitTest(tap)) {
                 // Check if any plane was hit, and if it was hit inside the plane polygon
                 Trackable trackable = hit.getTrackable();
