@@ -214,12 +214,14 @@ public class AR {
             return null;
         }
         Plane floor = null;
+        ArrayList<Plane> floors = new ArrayList<>();
         for (Plane plane : planes) {
             // if the plane is facing up
             if (plane.getType() == Plane.Type.HORIZONTAL_UPWARD_FACING) {
                 Pose center = plane.getCenterPose();
                 // if the plane is at least a meter below the person using the app
-                if (camera.getPose().getTranslation()[1] - center.getTranslation()[1] > 1 && camera.getPose().getTranslation()[1] - center.getTranslation()[1] < 2.5) {
+                float height = camera.getPose().getTranslation()[1] - center.getTranslation()[1];
+                if (height > 0 && height < 2.5) {
                     if (floor == null) {
                         floor = plane;
                     } else if (floor.getCenterPose().getTranslation()[1] > plane.getCenterPose().getTranslation()[1]) {
@@ -267,6 +269,8 @@ public class AR {
         float min_X_width = 10000;
         for (float i = -maxX + 0.5f; i <= maxX - 0.5f; i += 0.1) {
             width = Width_Of_Plane(0, 0, i, 0, points);
+            if(width == -1)
+                continue;
             if (width < min_X_width)
                 min_X_width = width;
         }
@@ -278,6 +282,8 @@ public class AR {
         float min_Z_width = 10000;
         for (float i = -maxZ + 0.5f; i < maxZ - 0.5f; i += 0.1) {
             width = Width_Of_Plane(0, 0, 0, i, points);
+            if(width == -1)
+                continue;
             if (width < min_Z_width)
                 min_Z_width = width;
         }
