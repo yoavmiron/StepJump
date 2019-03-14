@@ -25,6 +25,14 @@
       android:layout_height="fill_parent"
       android:layout_gravity="top"/>
 
+    <com.google.ar.core.examples.java.helloar.DetectionView
+        android:id="@+id/ourView"
+        android:name="com.google.ar.core.examples.java.helloar.DetectionView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+
+        android:alpha="1" />
+
   <TextView
       android:id="@+id/textView"
       android:layout_width="221dp"
@@ -34,7 +42,6 @@
       android:layout_marginBottom="10dp"
       android:maxLines="10"
       android:singleLine="false"
-      android:text="TextView"
       android:textAlignment="center"
       android:textColor="@android:color/holo_red_dark" />
 

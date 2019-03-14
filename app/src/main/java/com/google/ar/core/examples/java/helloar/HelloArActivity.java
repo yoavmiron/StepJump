@@ -16,18 +16,12 @@
 
 package com.google.ar.core.examples.java.helloar;
 
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.ImageFormat;
-import android.graphics.Paint;
 import android.media.Image;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.Surface;
@@ -43,7 +37,6 @@ import com.google.ar.core.Plane;
 import com.google.ar.core.Point;
 import com.google.ar.core.Point.OrientationMode;
 import com.google.ar.core.PointCloud;
-import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
@@ -65,18 +58,8 @@ import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
-import java.io.ByteArrayOutputStream;
 
-import android.graphics.YuvImage;
-import android.graphics.Rect;
-
-import java.nio.FloatBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -91,6 +74,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     // Rendering. The Renderers are created here, and initialized when the GL surface is created.
     private GLSurfaceView surfaceView;
+    private DetectionView ourView;
 
     private boolean installRequested;
 
@@ -125,12 +109,20 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private final ArrayList<ColoredAnchor> anchors = new ArrayList<>();
     private boolean createdOCD = false;
     private TextView textView;
+    private int screenHeight;
+    private int screenWidth;
+    private int realWidth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        screenHeight = displayMetrics.heightPixels;
+        screenWidth = displayMetrics.widthPixels;
         setContentView(R.layout.activity_main);
         surfaceView = findViewById(R.id.surfaceview);
+        ourView = findViewById(R.id.ourView);
         displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
 
         // Set up tap listener.
@@ -322,9 +314,10 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     }
 
                     // important
-                    ArrayList<OCD.Recognition> recognitions = ocd.detect(image);
                     int height = image.getHeight();
                     int width = image.getWidth();
+                    realWidth = screenHeight*height/width;
+                    ArrayList<OCD.Recognition> recognitions = ocd.detect(image);
                     image.close();
 
 
@@ -353,22 +346,25 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     // important
                     float[] object_widths = new float[recognitions.size()];
                     float[] center_of_objects = new float[recognitions.size()];
-//
+
                     for (int i = 0; i < recognitions.size(); i++) {
-                        float top = recognitions.get(i).location.top * (float) height;
-                        float bottom = recognitions.get(i).location.bottom * (float) height;
-                        float left = recognitions.get(i).location.left * (float) width;
-                        float right = recognitions.get(i).location.right * (float) width;
-                        top = top > height - 1 ? height - 1 : top;
+                        float top = recognitions.get(i).location.top * (float) screenHeight;
+                        float bottom = recognitions.get(i).location.bottom * (float) screenHeight;
+                        int deltaW = realWidth-screenWidth;
+                        float left = recognitions.get(i).location.left * (float) realWidth - deltaW/2;
+                        float right = recognitions.get(i).location.right * (float) realWidth - deltaW/2;
+                        top = top > screenHeight - 1 ? screenHeight - 1 : top;
                         top = top < 0 ? 0 : top;
-                        bottom = bottom > height - 1 ? height - 1 : bottom;
+                        bottom = bottom > screenHeight - 1 ? screenHeight - 1 : bottom;
                         bottom = bottom < 0 ? 0 : bottom;
-                        left = left > width - 1 ? width - 1 : left;
+                        left = left > screenWidth - 1 ? screenWidth - 1 : left;
                         left = left < 0 ? 0 : left;
-                        right = right > width - 1 ? width - 1 : right;
+                        right = right > screenWidth - 1 ? screenWidth - 1 : right;
                         right = right < 0 ? 0 : right;
                         float[] pixel1 = {left, bottom};
                         float[] pixel2 = {right, bottom};
+                        ourView.setRect(left, top, right, bottom);
+                        ourView.invalidate();
                         float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
                         object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
                         center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
