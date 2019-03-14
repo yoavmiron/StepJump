@@ -19,7 +19,10 @@ package com.google.ar.core.examples.java.helloar;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
+import android.graphics.Paint;
 import android.media.Image;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
@@ -288,6 +291,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         // Notify ARCore session that the view size changed so that the perspective matrix and
         // the video background can be properly adjusted.
         displayRotationHelper.updateSessionIfNeeded(session);
+        Plane floor = null;
 
         try {
             session.setCameraTextureName(backgroundRenderer.getTextureId());
@@ -333,7 +337,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     String message = " ";
 
                     ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
-                    Plane floor = AR.getFloor(ALPlanes, camera);
+                    floor = AR.getFloor(ALPlanes, camera);
                     // important
                     float floorWidth = -1.0f;
                     if (floor != null) {
@@ -421,6 +425,13 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             PointCloud pointCloud = frame.acquirePointCloud();
             pointCloudRenderer.update(pointCloud);
             pointCloudRenderer.draw(viewmtx, projmtx);
+
+            if(floor != null)
+            {
+                System.out.println(7);
+            }
+
+            ArrayList<ArrayList<float[]>> objects = AR.getObjects(pointCloud.getPoints(), floor);
 
             // Application is responsible for releasing the point cloud resources after
             // using it.

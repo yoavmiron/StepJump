@@ -2,6 +2,7 @@ package com.google.ar.core.examples.java.helloar;
 
 import android.view.MotionEvent;
 
+import com.google.ar.core.Anchor;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
@@ -53,20 +54,22 @@ public class AR {
      * @return ArrayList of the objects in the session
      */
     public static ArrayList<ArrayList<float[]>> getObjects(FloatBuffer points, Plane floor) {
+        if(floor == null)
+            return new ArrayList<>();
         ArrayList<float[]> allPoints = new ArrayList<>();
         for (int i = 0; i < points.remaining(); i += 4) {
             float[] currPoint = {points.get(i), points.get(i + 1), points.get(i + 2), points.get(i + 3)};
             //Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
             // makes sure the point isn't on the floor
-            if (floor != null && currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
+            if (currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
                 continue;
             }
-            if (currPoint[3] > 0.4) {
+            if (currPoint[3] > 0.3) {
                 allPoints.add(binarySearch(currPoint, allPoints), currPoint);
             }
         }
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
-        float distanceThreshold = 0.1f;
+        float distanceThreshold = 0.3f;
         for (float[] currPoint : allPoints) {
             // check that the point isn't on the floor
             // threshold of security about point position
@@ -76,15 +79,19 @@ public class AR {
                     break;
                 }
                 int index = binarySearch(currPoint, object);
-                if (distanceBetweenPoses(currPoint, allPoints.get(index)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
+                if(index != object.size()) {
+                    if (distanceBetweenPoses(currPoint, object.get(index)) < distanceThreshold) {
+                        object.add(index, currPoint);
+                        foundObject = true;
+                    }
                 }
-                if (index != 0 && distanceBetweenPoses(currPoint, allPoints.get(index - 1)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
+                else {
+                    if (distanceBetweenPoses(currPoint, object.get(index - 1)) < distanceThreshold) {
+                        object.add(index, currPoint);
+                        foundObject = true;
+                    }
                 }
-                if (index != allPoints.size() - 1 && distanceBetweenPoses(currPoint, allPoints.get(index + 1)) < distanceThreshold) {
+                if (index < object.size() - 1 && distanceBetweenPoses(currPoint, object.get(index + 1)) < distanceThreshold) {
                     object.add(index, currPoint);
                     foundObject = true;
                 }
@@ -107,7 +114,7 @@ public class AR {
      */
     private static int binarySearch(float[] point, ArrayList<float[]> allPoints) {
         if (allPoints.size() == 0) {
-            return -1;
+            return 0;
         }
         int min = 0;
         int max = allPoints.size();
@@ -119,10 +126,14 @@ public class AR {
             } else if (midX > pointX) {
                 max = (max + min) / 2;
             } else {
+                if(max - min == 1)
+                {
+                    return max;
+                }
                 min = (max + min) / 2;
             }
         }
-        return -1;
+        return min;
     }
 
     /**
