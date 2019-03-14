@@ -389,8 +389,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         textView.setText(message);
                     }
 
-                } catch (Throwable t) {
-                    System.out.print(7);
+                } catch (Throwable ignored) {
                 }
             }
             //#############################################

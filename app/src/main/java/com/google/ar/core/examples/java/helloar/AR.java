@@ -232,7 +232,7 @@ public class AR {
                 Pose center = plane.getCenterPose();
                 // if the plane is at least a meter below the person using the app
                 float height = camera.getPose().getTranslation()[1] - center.getTranslation()[1];
-                if (height > 0 && height < 2.5) {
+                if (height > 0.6 && height < 2) {
                     if (floor == null) {
                         floor = plane;
                     } else if (floor.getCenterPose().getTranslation()[1] > plane.getCenterPose().getTranslation()[1]) {
