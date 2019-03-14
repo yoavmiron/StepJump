@@ -1,5 +1,8 @@
 package com.google.ar.core.examples.java.helloar;
 
+import android.view.MotionEvent;
+
+import com.google.ar.core.Anchor;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
@@ -10,6 +13,8 @@ import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
+import static java.lang.Float.max;
 
 public class AR {
     /**
@@ -50,38 +55,45 @@ public class AR {
      * @return ArrayList of the objects in the session
      */
     public static ArrayList<ArrayList<float[]>> getObjects(FloatBuffer points, Plane floor) {
+        if(floor == null)
+            return new ArrayList<>();
         ArrayList<float[]> allPoints = new ArrayList<>();
         for (int i = 0; i < points.remaining(); i += 4) {
             float[] currPoint = {points.get(i), points.get(i + 1), points.get(i + 2), points.get(i + 3)};
             //Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
             // makes sure the point isn't on the floor
-            if (floor != null && currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
+            if (currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
                 continue;
             }
-            if (currPoint[3] > 0.4) {
+            if (currPoint[3] > 0.3) {
                 allPoints.add(binarySearch(currPoint, allPoints), currPoint);
             }
         }
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
-        float distanceThreshold = 0.1f;
+        float distanceThreshold = 0.3f;
         for (float[] currPoint : allPoints) {
             // check that the point isn't on the floor
-            // threshold of security about point position
+            // threshold for distance from points in already found objects
+            //TODO can do better in classifying objects using using smarter clustering algorithms
             boolean foundObject = false;
             for (ArrayList<float[]> object : objects) {
                 if (foundObject) {
                     break;
                 }
                 int index = binarySearch(currPoint, object);
-                if (distanceBetweenPoses(currPoint, allPoints.get(index)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
+                if(index != object.size()) {
+                    if (distanceBetweenPoses(currPoint, object.get(index)) < distanceThreshold) {
+                        object.add(index, currPoint);
+                        foundObject = true;
+                    }
                 }
-                if (index != 0 && distanceBetweenPoses(currPoint, allPoints.get(index - 1)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
+                else {
+                    if (distanceBetweenPoses(currPoint, object.get(index - 1)) < distanceThreshold) {
+                        object.add(index, currPoint);
+                        foundObject = true;
+                    }
                 }
-                if (index != allPoints.size() - 1 && distanceBetweenPoses(currPoint, allPoints.get(index + 1)) < distanceThreshold) {
+                if (index < object.size() - 1 && distanceBetweenPoses(currPoint, object.get(index + 1)) < distanceThreshold) {
                     object.add(index, currPoint);
                     foundObject = true;
                 }
@@ -100,11 +112,11 @@ public class AR {
     /**
      * @param point     point to add to allPoints
      * @param allPoints all the points added so far
-     * @return the index to which we need to add the new point
+     * @return the index to which we need to add the new point based on X axis
      */
     private static int binarySearch(float[] point, ArrayList<float[]> allPoints) {
         if (allPoints.size() == 0) {
-            return -1;
+            return 0;
         }
         int min = 0;
         int max = allPoints.size();
@@ -116,10 +128,14 @@ public class AR {
             } else if (midX > pointX) {
                 max = (max + min) / 2;
             } else {
+                if(max - min == 1)
+                {
+                    return max;
+                }
                 min = (max + min) / 2;
             }
         }
-        return -1;
+        return min;
     }
 
     /**
@@ -175,9 +191,9 @@ public class AR {
             }
             return a.equals(b) ? 0 : -1;
         };
-        distances.sort(c);
-        return distances.get(distances.size() / 2);
-        //return sumDistance / hits1.size() / hits2.size();
+        //distances.sort(c);
+        //return distances.get(0);
+        return sumDistance / hits1.size() / hits2.size();
     }
 
     /**
@@ -211,15 +227,19 @@ public class AR {
             return null;
         }
         Plane floor = null;
+        ArrayList<Plane> floors = new ArrayList<>();
         for (Plane plane : planes) {
             // if the plane is facing up
             if (plane.getType() == Plane.Type.HORIZONTAL_UPWARD_FACING) {
                 Pose center = plane.getCenterPose();
                 // if the plane is at least a meter below the person using the app
-                if (camera.getPose().getTranslation()[1] - center.getTranslation()[1] > 1 && camera.getPose().getTranslation()[1] - center.getTranslation()[1] < 2.5) {
+                float height = camera.getPose().getTranslation()[1] - center.getTranslation()[1];
+                if (height > 0.6 && height < 2) {
                     if (floor == null) {
                         floor = plane;
-                    } else if (floor.getCenterPose().getTranslation()[1] > plane.getCenterPose().getTranslation()[1]) {
+                    } else if (max(floor.getExtentZ(),floor.getExtentX()) < max(plane.getExtentX(), plane.getExtentZ())) {
+                        // if this plane if bigger in one of his dimensions than the largest of the current found
+                        // floor's dimensions than it's more likely to be the actual floor
                         floor = plane;
                     }
                 }
@@ -264,6 +284,8 @@ public class AR {
         float min_X_width = 10000;
         for (float i = -maxX + 0.5f; i <= maxX - 0.5f; i += 0.1) {
             width = Width_Of_Plane(0, 0, i, 0, points);
+            if(width == -1)
+                continue;
             if (width < min_X_width)
                 min_X_width = width;
         }
@@ -275,6 +297,8 @@ public class AR {
         float min_Z_width = 10000;
         for (float i = -maxZ + 0.5f; i < maxZ - 0.5f; i += 0.1) {
             width = Width_Of_Plane(0, 0, 0, i, points);
+            if(width == -1)
+                continue;
             if (width < min_Z_width)
                 min_Z_width = width;
         }
