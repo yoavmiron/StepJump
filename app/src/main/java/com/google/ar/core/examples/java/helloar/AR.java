@@ -15,6 +15,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 
+import static java.lang.Float.max;
+
 public class AR {
     /**
      * computes the distance between to poses
@@ -72,7 +74,8 @@ public class AR {
         float distanceThreshold = 0.3f;
         for (float[] currPoint : allPoints) {
             // check that the point isn't on the floor
-            // threshold of security about point position
+            // threshold for distance from points in already found objects
+            //TODO can do better in classifying objects using using smarter clustering algorithms
             boolean foundObject = false;
             for (ArrayList<float[]> object : objects) {
                 if (foundObject) {
@@ -110,7 +113,7 @@ public class AR {
     /**
      * @param point     point to add to allPoints
      * @param allPoints all the points added so far
-     * @return the index to which we need to add the new point
+     * @return the index to which we need to add the new point based on X axis
      */
     private static int binarySearch(float[] point, ArrayList<float[]> allPoints) {
         if (allPoints.size() == 0) {
@@ -235,7 +238,9 @@ public class AR {
                 if (height > 0.6 && height < 2) {
                     if (floor == null) {
                         floor = plane;
-                    } else if (floor.getCenterPose().getTranslation()[1] > plane.getCenterPose().getTranslation()[1]) {
+                    } else if (max(floor.getExtentZ(),floor.getExtentX()) < max(plane.getExtentX(), plane.getExtentZ())) {
+                        // if this plane if bigger in one of his dimensions than the largest of the current found
+                        // floor's dimensions than it's more likely to be the actual floor
                         floor = plane;
                     }
                 }
