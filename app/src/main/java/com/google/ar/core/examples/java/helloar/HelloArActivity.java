@@ -72,6 +72,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -86,9 +87,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     // Rendering. The Renderers are created here, and initialized when the GL surface is created.
     private GLSurfaceView surfaceView;
-
+    private CvHelper cvHelper;
     private boolean installRequested;
-
+    Random r = new Random();
     private Session session;
     private final SnackbarHelper messageSnackbarHelper = new SnackbarHelper();
     private DisplayRotationHelper displayRotationHelper;
@@ -123,6 +124,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         surfaceView = findViewById(R.id.surfaceview);
+        cvHelper = findViewById(R.id.cvhelper);
         displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
 
         // Set up tap listener.
@@ -326,23 +328,23 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
             // important
             /**float[] object_widths = new float[recognitions.size()];
-            float[] center_of_objects = new float[recognitions.size()];
+             float[] center_of_objects = new float[recognitions.size()];
 
-            for (int i = 0; i < recognitions.size(); i++) {
-                int height = frame.acquireCameraImage().getHeight();
-                int width = frame.acquireCameraImage().getWidth();
-                float top = recognitions.get(i).location.top * height;
-                float bottom = recognitions.get(i).location.bottom * height;
-                float left = recognitions.get(i).location.left * width;
-                float right = recognitions.get(i).location.right * width;
-                float[] pixel1 = {left, bottom};
-                float[] pixel2 = {right, bottom};
-                float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
-                object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
-                center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
-                // somekind of show: width of lable is object_widths[i]
-                // somekind of show: distance of lable from phone is center_of_objects[i]
-            }*/
+             for (int i = 0; i < recognitions.size(); i++) {
+             int height = frame.acquireCameraImage().getHeight();
+             int width = frame.acquireCameraImage().getWidth();
+             float top = recognitions.get(i).location.top * height;
+             float bottom = recognitions.get(i).location.bottom * height;
+             float left = recognitions.get(i).location.left * width;
+             float right = recognitions.get(i).location.right * width;
+             float[] pixel1 = {left, bottom};
+             float[] pixel2 = {right, bottom};
+             float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
+             object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
+             center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
+             // somekind of show: width of lable is object_widths[i]
+             // somekind of show: distance of lable from phone is center_of_objects[i]
+             }*/
 
 
             //#############################################
@@ -423,8 +425,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     // Handle only one tap per frame, as taps are usually low frequency compared to frame rate.
     private void handleTap(Frame frame, Camera camera) {
         MotionEvent tap = tapHelper.poll();
-        if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
 
+        if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
             ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
             Plane floor = AR.getFloor(ALPlanes, camera);
             // important

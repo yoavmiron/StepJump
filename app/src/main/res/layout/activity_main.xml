@@ -23,6 +23,14 @@
       android:id="@+id/surfaceview"
       android:layout_width="fill_parent"
       android:layout_height="fill_parent"
-      android:layout_gravity="top"/>
+      android:layout_gravity="top" />
+
+  <com.google.ar.core.examples.java.helloar.CvHelper
+      android:id="@+id/cvhelper"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_alignParentStart="true"
+      android:layout_alignParentTop="true" />
+
 
 </RelativeLayout>
