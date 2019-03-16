@@ -1,7 +1,11 @@
 package com.google.ar.core.examples.java.helloar;
+import com.google.ar.core.Plane;
+import com.google.ar.core.PointCloud;
 import com.google.ar.core.Pose;
 
 import java.lang.Math;
+import java.nio.FloatBuffer;
+
 public class TwoDLine {
     private float a,b,c;
     // az+bx+c = 0
@@ -158,7 +162,7 @@ public class TwoDLine {
         float[][] edge_points = new float[4][2];
         int count = 0;
         distance_from_line = this.b*xes[0] +this.a*zes[0] + this.c;
-        for(int i = 0; i< xes.length; i++)
+        for(int i = 0; i< Math.max(xes.length, zes.length); i++)
         {
             pre_distance_from_line = distance_from_line;
             distance_from_line = this.b*xes[i] +this.a*zes[i] + this.c;
@@ -235,16 +239,26 @@ public class TwoDLine {
         return min_X_width < min_Z_width ? min_X_width : min_Z_width;
     }
 
+    public static float[] convert_floatbuffer_to_array(FloatBuffer buf)
+    {
+        int size = buf.remaining();
+        float[] arr = new float[size];
+        for (int i =0; i<size; i++)
+            arr[i]=buf.get(i);
+        return arr;
+    }
+
+
     public static float[] filter_plane_points(PointCloud cloud, float plane_y)
     {
-
-        float[] points_on_plane = new float[cloud.getPoints().array().length];
+        float[] cloudPoints = convert_floatbuffer_to_array(cloud.getPoints());
+        float[] points_on_plane = new float[cloudPoints.length];
         int index=0;
-        for (int i =0; i<cloud.getPoints().array().length;i+=4) {
-            float dy = cloud.getPoints().array()[i + 1] - plane_y;
+        for (int i =0; i<cloudPoints.length;i+=4) {
+            float dy = cloudPoints[i + 1] - plane_y;
             if (dy <= 0.2 && dy >= -0.2) {
-                points_on_plane[index] = cloud.getPoints().array()[i];//x
-                points_on_plane[index+1] = cloud.getPoints().array()[i+2];//z
+                points_on_plane[index] = cloudPoints[i];//x
+                points_on_plane[index+1] = cloudPoints[i+2];//z
                 index+=2;
             }
         }
@@ -275,7 +289,7 @@ public class TwoDLine {
         return max_dist_point;
     }
 
-    public static float Get_Rotation_Angle(float x_center_pose,float z_center_pose, float x_p, float z_p,Plane plane)
+    public static float Get_Rotation_Angle(float x_center_pose, float z_center_pose, float x_p, float z_p, Plane plane)
     {
         float x_r = x_p-x_center_pose;
         float z_r = z_p-z_center_pose;
@@ -283,6 +297,41 @@ public class TwoDLine {
         float xp = farrest_from_polygon[0];
         float zp = farrest_from_polygon[1];
         return (float)Math.asin((z_p-z_r*x_p/x_r)/(x_r+z_r*z_r/x_r));
+    }
+
+    public static float[] convert_point_to_coord(float x, float z, float angle_degrees)
+    {
+        float angle_radians = angle_degrees*((float) Math.PI)/180;
+        float cos = ((float)Math.cos((double)angle_radians));
+        float sin = ((float)Math.sin((double)angle_radians));
+        float new_x = x*cos+z*sin;
+        float new_z = -x*sin+z*cos;
+        return new float[]{new_x,new_z};
+    }
+
+    public static float[] convert_point_to_coord(float x, float z, TwoDLine new_x_axis){
+        float angle = (float)Math.atan((double)(-new_x_axis.b/new_x_axis.a));
+        angle = angle*180/((float)Math.PI);
+        return convert_point_to_coord(x,z,angle);
+    }
+
+    public static float[] convert_points_to_coord(float[] prev_coords, float angle_degrees)
+    {
+        float[] new_coords = new float[prev_coords.length];
+        for (int i = 0; i<prev_coords.length; i+=2)
+        {
+            float[] new_coord_point = convert_point_to_coord(prev_coords[i],prev_coords[i+1],angle_degrees);
+            new_coords[i]=new_coord_point[0];
+            new_coords[i+1] = new_coord_point[1];
+        }
+        return new_coords;
+    }
+
+    public static float[] convert_points_to_coord(float[] prev_coords, TwoDLine new_x_axis)
+    {
+        float angle = (float)Math.atan((double)(-new_x_axis.b/new_x_axis.a));
+        angle = angle*180/((float)Math.PI);
+        return convert_points_to_coord(prev_coords,angle);
     }
 
 }
