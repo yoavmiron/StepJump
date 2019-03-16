@@ -301,7 +301,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     if (!createdOCD) {
                         try {
                             ocd = OCD.create(getAssets(),
-                                    "model.tflite",
+                                    "model_16-03-19.tflite",
                                     "labels.txt",
                                     300,
                                     false, image.getWidth(),
