@@ -59,7 +59,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
-import com.google.ar.sceneform.math.Vector3;
+
 
 /**
  * This is a simple example that shows how to create an augmented reality (AR) application using the
@@ -71,7 +71,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
   // Rendering. The Renderers are created here, and initialized when the GL surface is created.
   private GLSurfaceView surfaceView;
-
+  private CVproc cvProc;
   private boolean installRequested;
 
   private Session session;
@@ -107,6 +107,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
     surfaceView = findViewById(R.id.surfaceview);
+    cvProc= new CVproc();
     displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
 
     // Set up tap listener.
@@ -352,6 +353,12 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
 
     if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
+      try{
+        Image img=frame.acquireCameraImage();
+        cvProc.proccess(img);
+      }
+      catch (Exception e){}
+
       for (HitResult hit : frame.hitTest(tap)) {
         // Check if any plane was hit, and if it was hit inside the plane polygon
         Trackable trackable = hit.getTrackable();
@@ -398,6 +405,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
    * @param plane2
    * @return the angle between the planes in degrees.
    */
+  /**
   private float planeAngle(Plane plane1, Plane plane2){
       float[] normal1Arr = plane1.getCenterPose().getYAxis();
       float[] normal2Arr = plane2.getCenterPose().getYAxis();
@@ -405,4 +413,5 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
       Vector3 normal2Vec = new Vector3(normal2Arr[0], normal2Arr[1], normal2Arr[2]);
       return Vector3.angleBetweenVectors(normal1Vec, normal2Vec);
   }
+   **/
 }
