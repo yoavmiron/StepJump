@@ -57,8 +57,13 @@ import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
+import org.bytedeco.javacpp.opencv_core;
+import org.opencv.core.CvType;
+import org.opencv.imgproc.Imgproc;
+
 import java.io.IOException;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 
 import javax.microedition.khronos.egl.EGLConfig;
@@ -90,6 +95,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private final PointCloudRenderer pointCloudRenderer = new PointCloudRenderer();
     private OCD ocd;
     private long counter = 0;
+    private CvProc cvProc;
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
@@ -139,6 +145,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         textView = findViewById(R.id.textView);
 
         installRequested = false;
+        cvProc=new CvProc();
     }
 
     @Override
@@ -468,6 +475,11 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private void handleTap(Frame frame, Camera camera) {
         MotionEvent tap = tapHelper.poll();
         if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
+            cvProc.createMat();
+//            try{
+//                Image img = frame.acquireCameraImage();
+//                int a = ocd.cvProcess(img);
+//            }catch(Exception e){}
             for (HitResult hit : frame.hitTest(tap)) {
                 // Check if any plane was hit, and if it was hit inside the plane polygon
                 Trackable trackable = hit.getTrackable();
@@ -520,4 +532,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                 return 0;
         }
     }
+
+
 }
