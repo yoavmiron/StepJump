@@ -316,7 +316,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     // important
                     int height = image.getHeight();
                     int width = image.getWidth();
-                    realWidth = screenHeight*height/width;
+                    realWidth = screenHeight * height / width;
                     ArrayList<OCD.Recognition> recognitions = ocd.detect(image);
                     image.close();
 
@@ -350,9 +350,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     for (int i = 0; i < recognitions.size(); i++) {
                         float top = recognitions.get(i).location.top * (float) screenHeight;
                         float bottom = recognitions.get(i).location.bottom * (float) screenHeight;
-                        int deltaW = realWidth-screenWidth;
-                        float left = recognitions.get(i).location.left * (float) realWidth - deltaW/2;
-                        float right = recognitions.get(i).location.right * (float) realWidth - deltaW/2;
+                        int deltaW = realWidth - screenWidth;
+                        float left = recognitions.get(i).location.left * (float) realWidth - deltaW / 2;
+                        float right = recognitions.get(i).location.right * (float) realWidth - deltaW / 2;
                         top = top > screenHeight - 1 ? screenHeight - 1 : top;
                         top = top < 0 ? 0 : top;
                         bottom = bottom > screenHeight - 1 ? screenHeight - 1 : bottom;
@@ -363,11 +363,20 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         right = right < 0 ? 0 : right;
                         float[] pixel1 = {left, bottom};
                         float[] pixel2 = {right, bottom};
+                        float[] leftUp = {left, top};
+                        float[] rightDown = {right, bottom};
+                        float[] leftDown = {left, top};
+                        float[] rightUp = {right, bottom};
                         ourView.setRect(left, top, right, bottom);
                         ourView.invalidate();
                         float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
                         object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
                         center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
+
+
+                        object_widths[i] = AR.findMinDistBetweenLines(leftUp, rightUp, leftDown, rightDown, frame);
+
+
                         System.out.print(7);
                         // somekind of show: width of lable is object_widths[i]
                         // somekind of show: distance of lable from phone is center_of_objects[i]
