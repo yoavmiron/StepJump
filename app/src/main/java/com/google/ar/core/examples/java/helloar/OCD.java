@@ -72,6 +72,7 @@ public class OCD {
     private int[] rgbBytes = null;
 
 
+
     /**
      * Class that represents a recognition in an image
      */
@@ -111,6 +112,7 @@ public class OCD {
         cropToFrameTransform = new Matrix();
         frameTocropTransform.invert(cropToFrameTransform);
         rgbBytes = new int[width * height];
+        //cvProc= new CvProc();
     }
 
     public static OCD create(final AssetManager assetManager,
@@ -253,6 +255,12 @@ public class OCD {
 //        byte[] byteForBitmap = baOutputStream.toByteArray();
 //        Bitmap b =  BitmapFactory.decodeByteArray(byteForBitmap, 0, byteForBitmap.length);
 //        return Bitmap.createScaledBitmap(b, inputSize, inputSize, false);
+    }
+    public int processImage(Image image){
+        CvProc cvProc = new CvProc();
+        prepareImage(image);
+        return cvProc.process(croppedBitmap);
+
     }
 
 

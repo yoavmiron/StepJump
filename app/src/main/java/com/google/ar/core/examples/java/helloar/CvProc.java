@@ -3,14 +3,18 @@ package com.google.ar.core.examples.java.helloar;
 import android.graphics.Bitmap;
 
 
-import org.bytedeco.javacpp.opencv_core.Mat;
+//import org.bytedeco.javacpp.opencv_core.Mat;
 
+
+import org.opencv.core.Mat;
+
+import static org.opencv.android.Utils.bitmapToMat;
 
 
 public class CvProc {
-//    private Mat mat1;
+    private Mat mat;
     public CvProc() {
-//        mat1= new Mat();
+        mat= new Mat();
     }
 
 
@@ -22,9 +26,10 @@ public class CvProc {
 
     }
     public int process(Bitmap bitmap){
-        Mat mat = bitmapToMat(bitmap);
-        int a=1;
+//        Mat mat = new Mat();
+        bitmapToMat(bitmap, mat);
         // do what you want with the mat
+        mat.release();
         return 1;
     }
 

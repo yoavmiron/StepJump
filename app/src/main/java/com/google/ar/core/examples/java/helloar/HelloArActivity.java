@@ -57,9 +57,14 @@ import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
-import org.bytedeco.javacpp.opencv_core;
+//import org.bytedeco.javacpp.opencv_core;
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.android.OpenCVLoader;
 import org.opencv.core.CvType;
+import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
+
 
 import java.io.IOException;
 
@@ -75,6 +80,11 @@ import javax.microedition.khronos.opengles.GL10;
  * plane to place a 3d model of the Android robot.
  */
 public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.Renderer {
+    static {
+        if (!OpenCVLoader.initDebug()) {
+            // Handle initialization error
+        }
+    }
     private static final String TAG = HelloArActivity.class.getSimpleName();
 
     // Rendering. The Renderers are created here, and initialized when the GL surface is created.
@@ -119,8 +129,27 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private int screenWidth;
     private int realWidth;
 
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch (status) {
+                case LoaderCallbackInterface.SUCCESS: {
+                    Log.i(TAG, "OpenCV loaded successfully");
+                    Mat imageMat= new Mat();
+                }
+                break;
+                default: {
+                    super.onManagerConnected(status);
+                }
+                break;
+            }
+        }
+    };
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        OpenCVLoader.initDebug();
         super.onCreate(savedInstanceState);
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
@@ -151,7 +180,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     @Override
     protected void onResume() {
         super.onResume();
-
+        OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback);
         if (session == null) {
             Exception exception = null;
             String message = null;
@@ -323,7 +352,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     // important
                     int height = image.getHeight();
                     int width = image.getWidth();
-                    realWidth = screenHeight*height/width;
+                    realWidth = screenHeight*height/width;//assuming the image is rotated
                     ArrayList<OCD.Recognition> recognitions = ocd.detect(image);
                     image.close();
 
@@ -353,6 +382,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     // important
                     float[] object_widths = new float[recognitions.size()];
                     float[] center_of_objects = new float[recognitions.size()];
+
 
                     for (int i = 0; i < recognitions.size(); i++) {
                         float top = recognitions.get(i).location.top * (float) screenHeight;
@@ -475,11 +505,11 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private void handleTap(Frame frame, Camera camera) {
         MotionEvent tap = tapHelper.poll();
         if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
-            cvProc.createMat();
-//            try{
-//                Image img = frame.acquireCameraImage();
-//                int a = ocd.cvProcess(img);
-//            }catch(Exception e){}
+            try{
+                Image img = frame.acquireCameraImage();
+                int a = ocd.processImage(img);
+            }catch(Exception e){
+            }
             for (HitResult hit : frame.hitTest(tap)) {
                 // Check if any plane was hit, and if it was hit inside the plane polygon
                 Trackable trackable = hit.getTrackable();
@@ -531,6 +561,29 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             default:
                 return 0;
         }
+    }
+
+    /**
+     * converts from image coordinates to screen coordinates. The image is assumed to be rotated (as
+     * in the OCD code).
+     * @param x coordinate in image
+     * @param y coordinate in image
+     * @param height of image
+     * @param width of image
+     * @return pixel in screen coordinates.
+     */
+    private float[] pixel_transfer(float x, float y, int height, int width){
+        float[] pixel = new float[2];
+        realWidth = screenHeight*height/width;
+        float newX= x*(float) realWidth-(realWidth-screenWidth)/2;
+        newX = newX > screenWidth - 1 ? screenWidth - 1 : newX;
+        newX = newX < 0 ? 0 : newX;
+        float newY= y* (float) screenHeight;
+        newY = newY > screenHeight - 1 ? screenHeight - 1 : newY;
+        newY = newY < 0 ? 0 : newY;
+        pixel[0] = newX;
+        pixel[1] = newY;
+        return pixel;
     }
 
 

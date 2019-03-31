@@ -37,13 +37,5 @@ dependencies {
     implementation 'com.android.support:design:27.0.2'
     implementation 'org.tensorflow:tensorflow-lite:0.0.0-nightly'
     //implementation 'org.tensorflow:tensorflow-lite:+'
-    implementation files('libs/javacpp.jar')
-    implementation files('libs/javacv-platform.jar')
-    implementation files('libs/javacv.jar')
-    implementation files('libs/opencv-android-arm.jar')
-    implementation files('libs/opencv-android-arm64.jar')
-    implementation files('libs/opencv-android-x86.jar')
-    implementation files('libs/opencv-android-x86_64.jar')
-    implementation files('libs/opencv.jar')
-    implementation files('libs/opencv-platform.jar')
+    implementation project(':CVsdk')
 }
