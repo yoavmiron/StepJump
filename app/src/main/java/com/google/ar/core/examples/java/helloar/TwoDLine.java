@@ -249,18 +249,25 @@ public class TwoDLine {
     }
 
 
-    public static float[] filter_plane_points(PointCloud cloud, float plane_y)
+    public static float[] filter_plane_points(PointCloud cloud, float plane_y, Plane plane)
     {
+        Pose cp = plane.getCenterPose();
+        float xCP = cp.tx();
+        float zCP = cp.tz();
         float[] cloudPoints = convert_floatbuffer_to_array(cloud.getPoints());
         float[] points_on_plane = new float[cloudPoints.length];
         int index=0;
+        float [] fakeQuaternions = new float[]{0,0,0,0};
+        float[] translation = new float[4];
         for (int i =0; i<cloudPoints.length;i+=4) {
+            Pose thisPose = new Pose(translation, fakeQuaternions);
             float dy = cloudPoints[i + 1] - plane_y;
-            if (dy <= 0.2 && dy >= -0.2) {
-                points_on_plane[index] = cloudPoints[i];//x
-                points_on_plane[index+1] = cloudPoints[i+2];//z
-                index+=2;
-            }
+            if (dy <= 0.02 && dy >= -0.02)
+                if (plane.isPoseInPolygon(thisPose)){
+                    points_on_plane[index] = cloudPoints[i] - xCP;//x
+                    points_on_plane[index+1] = cloudPoints[i+2] - zCP;//z
+                    index+=2;
+                }
         }
         float[] filtered = new float[index];
         for (int i =0; i<index;i++)
@@ -289,14 +296,9 @@ public class TwoDLine {
         return max_dist_point;
     }
 
-    public static float Get_Rotation_Angle(float x_center_pose, float z_center_pose, float x_p, float z_p, Plane plane)
+    public static float Get_Rotation_Angle(Plane plane)
     {
-        float x_r = x_p-x_center_pose;
-        float z_r = z_p-z_center_pose;
-        float[] farrest_from_polygon = TwoDLine.find_point_with_max_distance(0,0,plane.getPolygon().array());
-        float xp = farrest_from_polygon[0];
-        float zp = farrest_from_polygon[1];
-        return (float)Math.asin((z_p-z_r*x_p/x_r)/(x_r+z_r*z_r/x_r));
+       return (float) Math.acos((plane.getCenterPose().getXAxis()[0]));
     }
 
     public static float[] convert_point_to_coord(float x, float z, float angle_degrees)

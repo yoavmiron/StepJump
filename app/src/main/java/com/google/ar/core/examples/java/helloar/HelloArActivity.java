@@ -62,12 +62,15 @@ import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationExceptio
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Comparator;
 
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+
+import static java.lang.Math.max;
 
 /**
  * This is a simple example that shows how to create an augmented reality (AR) application using the
@@ -273,6 +276,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         // Notify ARCore session that the view size changed so that the perspective matrix and
         // the video background can be properly adjusted.
         displayRotationHelper.updateSessionIfNeeded(session);
+        Plane floor = null;
 
         try {
             session.setCameraTextureName(backgroundRenderer.getTextureId());
@@ -311,6 +315,13 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             // Visualize tracked points.
             PointCloud pointCloud = frame.acquirePointCloud();
             pointCloud.getPoints();
+            ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
+            floor = getFloor(ALPlanes,frame.getCamera());
+            FloatBuffer buffer = pointCloud.getPoints();
+            float[] floatBuffer = bufferToArray(buffer);
+            ArrayList<ArrayList<float[]>> objects = getObjects(floatBuffer, floor);
+            if (floor != null)
+                System.out.println(convertObjectsToPlane(floor,objects, pointCloud));
             pointCloudRenderer.update(pointCloud);
             pointCloudRenderer.draw(viewmtx, projmtx);
 
@@ -384,12 +395,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     if (trackable instanceof Point) {
                         objColor = new float[]{66.0f, 133.0f, 244.0f, 255.0f};
                     } else if (trackable instanceof Plane) {
-                        float m = meter_ahead(((Plane)trackable),((Plane)trackable).getPolygon().array(),four_points_of_all_objects(((Plane)trackable),getObjects(frame.acquirePointCloud().getPoints(),((Plane)trackable)),frame.acquirePointCloud()), frame.acquirePointCloud(), frame.getCamera());
-                        float a = findFinalDistance( ((Plane)trackable).getPolygon().array(),four_points_of_all_objects(((Plane)trackable),getObjects(frame.acquirePointCloud().getPoints(),((Plane)trackable)),frame.acquirePointCloud()), 'X', false);
-                        float b = findFinalDistance( ((Plane)trackable).getPolygon().array(),four_points_of_all_objects(((Plane)trackable),getObjects(frame.acquirePointCloud().getPoints(),((Plane)trackable)),frame.acquirePointCloud()), 'Z', false);
                         objColor = new float[]{139.0f, 195.0f, 74.0f, 255.0f};
-                        getObjects(frame.acquirePointCloud().getPoints(),(Plane)trackable);
-                        float w = TwoDLine.find_width(((Plane) trackable).getPolygon().array());
                         System.out.print(7);
                     } else {
                         objColor = DEFAULT_COLOR;
@@ -468,6 +474,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         // Compute the straight-line distance.
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
+
 
     /**
      * computes the distance between to poses
@@ -605,7 +612,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             //the polygon
             float[] intersection1 = Axis.Find_InterSection(lines[0]);
             float[] intersection2 = Axis.Find_InterSection(lines[1]);
-            float[] onDiameter = new float[MAX_POINTS * 2 + 4];//the array in which we put the points which are on our Axis
+            float[] onDiameter = new float[MAX_POINTS * 4 + 4];//the array in which we put the points which are on our Axis
             int added_counter = 2; // counts how many coordinates we added (pointsX2)
             onDiameter[0] = intersection1[0];
             onDiameter[1] = intersection1[1];
@@ -855,39 +862,70 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
      * @param floor  the floor plane
      * @return ArrayList of the objects in the session
      */
-    public static ArrayList<ArrayList<float[]>> getObjects(FloatBuffer points, Plane floor) {
-        if(floor == null)
+    public static ArrayList<ArrayList<float[]>> getObjects(float[] points, Plane floor) {
+        if (floor == null)
             return new ArrayList<>();
         ArrayList<float[]> allPoints = new ArrayList<>();
-        for (int i = 0; i < points.remaining(); i += 4) {
-            float[] currPoint = {points.get(i), points.get(i + 1), points.get(i + 2), points.get(i + 3)};
+        for (int i = 0; i < points.length; i += 4) {
+            float[] currPoint = {points[i], points[i + 1], points[i + 2], points[i + 3]};
             //Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
             // makes sure the point isn't on the floor
             if (currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
                 continue;
             }
             if (currPoint[3] > 0.3) {
-                allPoints.add(binarySearch(currPoint, allPoints), currPoint);
+                allPoints.add(currPoint);
             }
         }
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
+        ArrayList<Integer> checked_indexes = new ArrayList<>();
         float distanceThreshold = 0.3f;
-        for (float[] currPoint : allPoints) {
+        int object_index = -1;
+        int point_index = -1;
+        int next_point = 0;
+        while (checked_indexes.size() != allPoints.size()) {
+            if (object_index == -1 || objects.get(object_index).size() <= point_index) {
+                ArrayList<float[]> object = new ArrayList<>();
+                while (checked_indexes.contains(next_point)) {
+                    next_point++;
+                }
+                object.add(allPoints.get(next_point));
+                objects.add(object);
+                object_index++;
+                next_point++;
+                point_index = 0;
+                continue;
+            }
+            ArrayList<float[]> object = objects.get(object_index);
+            while (object.size() > point_index) {
+                for (int i = 0; i < allPoints.size(); i++) {
+                    if(checked_indexes.contains(i))
+                        continue;
+                    if(distanceBetweenPoses(object.get(point_index),allPoints.get(i)) < distanceThreshold){
+                        object.add(allPoints.get(i));
+                        checked_indexes.add(i);
+                    }
+                }
+                point_index++;
+            }
+        }
+        return objects;
+        /*for (float[] currPoint : allPoints) {
             // check that the point isn't on the floor
-            // threshold of security about point position
+            // threshold for distance from points in already found objects
+            //TODO can do better in classifying objects using using smarter clustering algorithms
             boolean foundObject = false;
             for (ArrayList<float[]> object : objects) {
                 if (foundObject) {
                     break;
                 }
                 int index = binarySearch(currPoint, object);
-                if(index != object.size()) {
+                if (index != object.size()) {
                     if (distanceBetweenPoses(currPoint, object.get(index)) < distanceThreshold) {
                         object.add(index, currPoint);
                         foundObject = true;
                     }
-                }
-                else {
+                } else {
                     if (distanceBetweenPoses(currPoint, object.get(index - 1)) < distanceThreshold) {
                         object.add(index, currPoint);
                         foundObject = true;
@@ -905,7 +943,17 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                 objects.add(newObject);
             }
         }
-        return objects;
+        return objects;*/
+    }
+
+    static float[] bufferToArray(FloatBuffer f){
+        float[] points = new float[f.remaining()];
+        for(int i = 0; i<points.length;i++)
+        {
+            points[i] = f.get();
+        }
+        f.rewind();
+        return points;
     }
 
     /**
@@ -940,15 +988,14 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     /**
      * @param point the point to search it's object
-     * @param angle all objects found
      * @return index of object in objects in which the anchor is placed
      */
-    public static float[] Convert_Point_From_Reality_to_Plane_Given_Angle(float angle, Pose point) {
+    public static float[] Convert_Point_From_Reality_to_Plane_Given_Angle(Pose point, Plane plane) {
 /*
 Main!!!
- */
-        float xp = (float) (point.tx() * Math.cos(angle) - point.tz() * Math.sin(angle));
-        float zp = (float) (point.tx() * Math.sin(angle) + point.tz() * (Math.cos(angle)));
+ */     float angle = (float)(Math.acos(plane.getCenterPose().getXAxis()[0]));
+        float xp = (float) (point.tx() * Math.cos(angle) - point.tz() * Math.sin(angle)) - plane.getCenterPose().getTranslation()[0];
+        float zp = (float) (-point.tx() * Math.sin(angle) - point.tz() * (Math.cos(angle))) - plane.getCenterPose().getTranslation()[2];
         return new float[]{xp, zp};
     }
 
@@ -973,6 +1020,37 @@ Main!!!
         return arr;
     }
 
+    private ArrayList<float[]> convertObjectToPlane(Plane plane, ArrayList<float[]> object_points, PointCloud cloud)
+    {
+        ArrayList<float[]> objectOnPlane = new ArrayList<>(object_points.size()) ;
+        int count = 0;
+        for(float[] p : object_points)
+        {
+            Pose pose = new Pose(p,new float[]{0,0,0,0});
+            float[] point_in_plane_system = Convert_Point_From_Reality_to_Plane_Given_Angle(pose, plane);
+            objectOnPlane.add(point_in_plane_system);
+        }
+        return objectOnPlane;
+    }
+
+    private ArrayList<float[]> convertObjectsToPlane(Plane plane, ArrayList<ArrayList<float[]>> objects, PointCloud cloud)
+    {
+        ArrayList<float[]> objectsOnPlane = new ArrayList<>();
+        for (ArrayList<float[]> object : objects)
+        {
+            ArrayList<float[]> oneObject = convertObjectToPlane(plane, object, cloud);
+            float[] thisObject = new float[2*oneObject.size()];
+            for(int i = 0; i < thisObject.length; i+=2)
+            {
+                thisObject[i] = oneObject.get(i/2)[0];
+                thisObject[i+1] = oneObject.get(i/2)[1];
+            }
+            if (thisObject.length > 6)
+                objectsOnPlane.add(thisObject);
+        }
+        return objectsOnPlane;
+    }
+
 
     private float[] four_points_of_object(Plane plane, ArrayList<float[]> object_points,PointCloud cloud)
     {
@@ -981,12 +1059,12 @@ Main!!!
         for(float[] p: object_points)
         {
             Pose pose = new Pose(p,new float[]{0,0,0,0});
-            float[] point_in_plane_system = Convert_Point_From_Reality_to_Plane_Given_Angle(angle,pose);
+            float[] point_in_plane_system = Convert_Point_From_Reality_to_Plane_Given_Angle(pose, plane);
             float x = point_in_plane_system[0], z = point_in_plane_system[1];
             if (x>max_x_p[0])
             {
-                max_x_p[0]=x;
-                max_x_p[1]=z;
+                max_x_p[0] = x;
+                max_x_p[1] = z;
                 max_x_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
             }
             if (x<min_x_p[0])
@@ -1109,10 +1187,12 @@ Main!!!
                 Pose center = plane.getCenterPose();
                 // if the plane is at least a meter below the person using the app
                 float height = camera.getPose().getTranslation()[1] - center.getTranslation()[1];
-                if (height > 0 && height < 2.5) {
+                if (height > 0.6 && height < 2) {
                     if (floor == null) {
                         floor = plane;
-                    } else if (floor.getCenterPose().getTranslation()[1] > plane.getCenterPose().getTranslation()[1]) {
+                    } else if (max(floor.getExtentZ(),floor.getExtentX()) < max(plane.getExtentX(), plane.getExtentZ())) {
+                        // if this plane if bigger in one of his dimensions than the largest of the current found
+                        // floor's dimensions than it's more likely to be the actual floor
                         floor = plane;
                     }
                 }
@@ -1134,11 +1214,7 @@ Main!!!
 
 
     public static float Find_Rotation_Between_Coordinates(Plane p, PointCloud cloud) {
-        float[] points = TwoDLine.filter_plane_points(cloud, p.getCenterPose().ty());
-        float x_center_pose = p.getCenterPose().tx();
-        float z_center_pose = p.getCenterPose().tz();
-        float[] point = TwoDLine.find_point_with_max_distance(x_center_pose, z_center_pose, points);
-        return TwoDLine.Get_Rotation_Angle(x_center_pose, z_center_pose, point[0], point[1], p);
+        return TwoDLine.Get_Rotation_Angle(p);
     }
 
     public static float[] Convert_Point_From_Reality_to_Plane(Plane plane, PointCloud cloud, Pose point) {
@@ -1146,10 +1222,67 @@ Main!!!
         Main!!!
          */
         float angle = Find_Rotation_Between_Coordinates(plane, cloud);
-        float xp = (float) (point.tx() * Math.cos(angle) - point.tz() * Math.sin(angle));
-        float zp = (float) (point.tx() * Math.sin(angle) + point.tz() * (Math.cos(angle)));
+        float xp = (float) (-point.tx() * Math.cos(angle) - point.tz() * Math.sin(angle));
+        float zp = (float) (-point.tx() * Math.sin(angle) - point.tz() * (Math.cos(angle)));
         return new float[]{xp, zp};
     }
+
+
+    private float[] createPlane (PointCloud cloud, Plane plane, float[] polygon, ArrayList<ArrayList<float[]>> objects)
+    {
+        float[][] objectsInside = new float[0][0];
+        for (ArrayList<float[]> object : objects)
+        {
+            boolean allOut = true;
+            boolean allIn = true;
+            for (float[] point: object) {
+                float[] poseCoordiantes = new float[3];
+                poseCoordiantes[0] = point[0];
+                poseCoordiantes[1] = point[1];
+                poseCoordiantes[2] = point[2];
+                float[] fakeQuaternions = new float[4];
+                fakeQuaternions[0] = 0;
+                fakeQuaternions[1] = 0;
+                fakeQuaternions[2] = 1;
+                fakeQuaternions[3] = 0;
+                Pose pose = new Pose(poseCoordiantes,fakeQuaternions);
+                if (plane.isPoseInPolygon(pose))
+                    allOut = false;
+                else
+                    allIn = false;
+            }
+            if (allIn || allOut) {
+                objects.remove(object);
+            }
+            else
+            {
+                float[] real_object = four_points_of_object(plane, object, cloud);
+                float[] pointsIn = new float[2* (int)real_object[0]];
+                int inCounter = 0;
+                int outCounter = 0;
+                float[] pointsOut = new float[8-(2* (int)real_object[0])];
+                for (int i=1; i< real_object.length; i+=3)
+                {
+                    if (real_object[i+2] == 0)
+                    {
+                        pointsIn[inCounter] = real_object[i];
+                        pointsIn[inCounter+1] = real_object[i+1];
+                        inCounter += 2;
+                    }
+                    else
+                    {
+                        pointsOut[outCounter] = real_object[i];
+                        pointsOut[outCounter+1] = real_object[i+1];
+                        outCounter += 2;
+                    }
+                }
+                polygon = cut_plane_points_inside(polygon, pointsIn, pointsOut);
+            }
+        }
+        return polygon;
+    }
+
+
     private float merge_plane_width (PointCloud cloud, Plane plane, float[] polygon, ArrayList<ArrayList<float[]>> objects) {
         float[][] objectsInside = new float[0][0];
         for (ArrayList<float[]> object : objects)
@@ -1200,8 +1333,8 @@ Main!!!
                 polygon = cut_plane_points_inside(polygon, pointsIn, pointsOut);
             }
         }
-        float Xdistance = findFinalDistance(polygon,objectsInside,'x', false);
-        float Zdistance = findFinalDistance(polygon, objectsInside, 'z', false);
+        float Xdistance = findFinalDistance(polygon,objectsInside,'X', false);
+        float Zdistance = findFinalDistance(polygon, objectsInside, 'Z', false);
         return Math.min(Xdistance, Zdistance);
     }
 
@@ -1303,18 +1436,10 @@ Main!!!
                         }
                         break;
                     }
-
                 }
-
             }
         }
         return findFinalDistance(polygon, objectsInside, diagonaCamera);
     }
-
-
-
-
-
-
 }
 
