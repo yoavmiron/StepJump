@@ -100,9 +100,9 @@ public class AR {
             ArrayList<float[]> object = objects.get(object_index);
             while (object.size() > point_index) {
                 for (int i = 0; i < allPoints.size(); i++) {
-                    if(checked_indexes.contains(i))
+                    if (checked_indexes.contains(i))
                         continue;
-                    if(distanceBetweenPoses(object.get(point_index),allPoints.get(i)) < distanceThreshold){
+                    if (distanceBetweenPoses(object.get(point_index), allPoints.get(i)) < distanceThreshold) {
                         object.add(allPoints.get(i));
                         checked_indexes.add(i);
                     }
@@ -111,40 +111,6 @@ public class AR {
             }
         }
         return objects;
-        /*for (float[] currPoint : allPoints) {
-            // check that the point isn't on the floor
-            // threshold for distance from points in already found objects
-            //TODO can do better in classifying objects using using smarter clustering algorithms
-            boolean foundObject = false;
-            for (ArrayList<float[]> object : objects) {
-                if (foundObject) {
-                    break;
-                }
-                int index = binarySearch(currPoint, object);
-                if (index != object.size()) {
-                    if (distanceBetweenPoses(currPoint, object.get(index)) < distanceThreshold) {
-                        object.add(index, currPoint);
-                        foundObject = true;
-                    }
-                } else {
-                    if (distanceBetweenPoses(currPoint, object.get(index - 1)) < distanceThreshold) {
-                        object.add(index, currPoint);
-                        foundObject = true;
-                    }
-                }
-                if (index < object.size() - 1 && distanceBetweenPoses(currPoint, object.get(index + 1)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
-                }
-            }
-            // new object detected
-            if (!foundObject) {
-                ArrayList<float[]> newObject = new ArrayList<float[]>();
-                newObject.add(currPoint);
-                objects.add(newObject);
-            }
-        }
-        return objects;*/
     }
 
 
@@ -390,10 +356,9 @@ public class AR {
         return minDist;
     }
 
-    static float[] bufferToArray(FloatBuffer f){
+    static float[] bufferToArray(FloatBuffer f) {
         float[] points = new float[f.remaining()];
-        for(int i = 0; i<points.length;i++)
-        {
+        for (int i = 0; i < points.length; i++) {
             points[i] = f.get();
         }
         f.rewind();

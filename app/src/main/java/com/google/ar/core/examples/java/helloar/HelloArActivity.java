@@ -92,6 +92,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private final PointCloudRenderer pointCloudRenderer = new PointCloudRenderer();
     private OCD ocd;
     private long counter = 0;
+    private int door_counter = -1;
+    private float[] door_widths;
+    private final int avg_times = 20;
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
@@ -141,6 +144,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         textView = findViewById(R.id.textView);
 
         installRequested = false;
+
+        door_widths = new float[avg_times];
     }
 
     @Override
@@ -296,6 +301,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             Frame frame = session.update();
             Camera camera = frame.getCamera();
             counter++;
+            String message = " ";
             if (counter % 20 == 0) {
                 try {
                     Image image = frame.acquireCameraImage();
@@ -328,8 +334,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
                     //#############################################
                     // AR CODE
-
-                    String message = " ";
 
                     ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
                     floor = AR.getFloor(ALPlanes, camera);
@@ -384,11 +388,17 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         // somekind of show: distance of lable from phone is center_of_objects[i]
                     }
                     if (object_widths.length != 0 && object_widths[0] != -1 && recognitions.get(0).confidence > 0.7) {
+                        if (door_counter == -1) {
+                            door_counter = 0;
+                        }
                         message += "width of ";
                         message += recognitions.get(0).label;
                         message += " is ";
                         message += object_widths[0];
                     } else if (object_widths.length != 0 && recognitions.get(0).confidence > 0.7) {
+                        if (door_counter == -1) {
+                            door_counter = 0;
+                        }
                         message += "recognized a ";
                         message += recognitions.get(0).label;
                     }
@@ -398,6 +408,32 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
                 } catch (Throwable ignored) {
                 }
+            }
+
+            if (door_counter >= 0 && door_counter < avg_times) {
+                //TODO change hereeeeeeeeeeeee
+                float curr_width = AR.findMinDistBetweenLines(null, null, null, null, null);
+                if (curr_width == -1f) {
+                    door_counter--;
+                } else {
+                    door_widths[door_counter] = curr_width;
+                }
+                door_counter++;
+            }
+            if (door_counter >= avg_times) {
+                door_counter++;
+                if(door_counter == 6*avg_times){
+                    door_counter = -1;
+                }
+                float avg_width = 0.0f;
+                for (int k = 0; k < avg_times; k++) {
+                    avg_width += door_widths[k];
+                }
+                avg_width /= avg_times;
+                message += "\n";
+                message += "new width is: ";
+                message += avg_width;
+                textView.setText(message);
             }
             //#############################################
 
