@@ -94,7 +94,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private long counter = 0;
     private int door_counter = -1;
     private float[] door_widths;
-    private final int avg_times = 20;
+    private final int avg_times = 5;
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
@@ -302,15 +302,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             Camera camera = frame.getCamera();
             counter++;
             String message = " ";
-            Image image = null;
-            try {
-                image = frame.acquireCameraImage();
-            } catch (Exception ignored) {
-
-            }
             if (counter % 20 == 0) {
                 try {
-
+                    Image image = frame.acquireCameraImage();
                     // OCD CODE
                     if (!createdOCD) {
                         try {
@@ -386,68 +380,54 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
 
                         object_widths[i] = AR.findMinDistBetweenLines(leftUp, rightUp, leftDown, rightDown, frame);
-
-
-                        System.out.print(7);
+                        float cv_top = recognitions.get(i).location.top * (float) ocd.cropSize * 0.9f;
+                        float cv_bottom = recognitions.get(i).location.bottom * (float) ocd.cropSize * 1.1f;
+                        cv_bottom = cv_bottom > 299f ? 299f : cv_bottom;
+                        float cv_left = recognitions.get(i).location.left * (float) ocd.cropSize * 0.9f;
+                        float cv_right = recognitions.get(i).location.right * (float) ocd.cropSize * 1.1f;
+                        cv_right = cv_right > 299f ? 299f : cv_right;
+                        ArrayList<double[]> lines = ocd.imageProcess(image, top, cv_bottom, cv_left, cv_right);
+                        double[] left_line = lines.get(0);
+                        double[] right_line = lines.get(1);
+                        object_widths[i] = AR.findMinDistBetweenLines(new float[]{(float) left_line[0], (float) left_line[1]}, new float[]{(float) right_line[0], (float) right_line[1]}, new float[]{(float) left_line[2], (float) left_line[3]}, new float[]{(float) right_line[2], (float) right_line[3]}, frame);
                         // somekind of show: width of lable is object_widths[i]
                         // somekind of show: distance of lable from phone is center_of_objects[i]
                     }
                     if (object_widths.length != 0 && object_widths[0] != -1 && recognitions.get(0).confidence > 0.7) {
-                        if (door_counter == -1) {
-                            door_counter = 0;
-                        }
                         message += "width of ";
                         message += recognitions.get(0).label;
                         message += " is ";
                         message += object_widths[0];
-                    } else if (object_widths.length != 0 && recognitions.get(0).confidence > 0.7) {
                         if (door_counter == -1) {
                             door_counter = 0;
                         }
+                        if(door_counter >= 0 && door_counter < avg_times){
+                            door_widths[door_counter] = object_widths[0];
+                            door_counter++;
+                        }
+                        else if(door_counter >= avg_times){
+                            float avg_width = 0.0f;
+                            for(int k = 0; k<avg_times;k++){
+                                avg_width += door_widths[k];
+                            }
+                            avg_width /= avg_times;
+                            message += "\n";
+                            message += "AR-CV width is:";
+                            message += avg_width;
+                        }
+                    } else if (object_widths.length != 0 && recognitions.get(0).confidence > 0.7) {
                         message += "recognized a ";
                         message += recognitions.get(0).label;
+                    }
+                    else if(object_widths.length == 0){
+                        door_counter = -1;
                     }
                     if (!message.equals("")) {
                         textView.setText(message);
                     }
-
+                    image.close();
                 } catch (Throwable ignored) {
                 }
-            }
-            if (image != null) {
-                if (door_counter >= 0 && door_counter < avg_times) {
-                    if (ocd != null) {
-                        ArrayList<double[]> lines = ocd.imageProcess(image);
-                        double[] left_line = lines.get(0);
-                        double[] right_line = lines.get(1);
-                        if (left_line != null && right_line != null) {
-                            float curr_width = AR.findMinDistBetweenLines(new float[]{(float)left_line[0],(float)left_line[1]}, new float[]{(float)right_line[0],(float)right_line[1]}, new float[]{(float)left_line[2],(float)left_line[3]}, new float[]{(float)right_line[2],(float)right_line[3]}, frame);
-                            if (curr_width == -1f) {
-                                door_counter--;
-                            } else {
-                                door_widths[door_counter] = curr_width;
-                            }
-                            door_counter++;
-                        }
-                    }
-                } else if (door_counter >= avg_times) {
-                    door_counter++;
-                    if (door_counter == 6 * avg_times) {
-                        door_counter = -1;
-                    }
-                    float avg_width = 0.0f;
-                    for (int k = 0; k < avg_times; k++) {
-                        avg_width += door_widths[k];
-                    }
-                    avg_width /= avg_times;
-                    message += "\n";
-                    message += "new width is: ";
-                    message += avg_width;
-                    textView.setText(message);
-                }
-
-
-                image.close();
             }
             //#############################################
 

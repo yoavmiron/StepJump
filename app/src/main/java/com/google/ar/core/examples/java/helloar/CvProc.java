@@ -19,8 +19,9 @@ public class CvProc {
         Utils.bitmapToMat(bmp32, mat);
 
     }
-    ArrayList<double[]> process(Bitmap bitmap){
+    ArrayList<double[]> process(Bitmap bitmap, float top,float bottom, float left, float right){
         bitmapToMat(bitmap);
+        mat = mat.submat((int)left,(int)right,(int)top, (int)bottom);
         return ImageProcessing.detectDoor(mat);
     }
 }
