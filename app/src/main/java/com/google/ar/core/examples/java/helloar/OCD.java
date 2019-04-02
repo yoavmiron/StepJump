@@ -262,9 +262,8 @@ public class OCD
 //        Bitmap b =  BitmapFactory.decodeByteArray(byteForBitmap, 0, byteForBitmap.length);
 //        return Bitmap.createScaledBitmap(b, inputSize, inputSize, false);
     }
-    public int imageProcess(Image image){
+    public ArrayList<double[]> imageProcess(Image image){
         prepareImage(image);
         return cvProc.process(croppedBitmap);
-
     }
 }

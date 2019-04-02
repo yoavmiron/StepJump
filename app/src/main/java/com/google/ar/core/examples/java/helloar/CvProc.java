@@ -4,6 +4,9 @@ import android.graphics.Bitmap;
 import org.opencv.android.Utils;
 
 import org.opencv.core.Mat;
+import com.google.ar.core.examples.java.helloar.ImageProcessing;
+
+import java.util.ArrayList;
 
 public class CvProc {
     private Mat mat;
@@ -16,8 +19,8 @@ public class CvProc {
         Utils.bitmapToMat(bmp32, mat);
 
     }
-    public int process(Bitmap bitmap){
+    ArrayList<double[]> process(Bitmap bitmap){
         bitmapToMat(bitmap);
-        return 1;
+        return ImageProcessing.detectDoor(mat);
     }
 }

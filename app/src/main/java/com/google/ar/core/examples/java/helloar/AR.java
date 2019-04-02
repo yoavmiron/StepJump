@@ -34,6 +34,14 @@ public class AR {
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
+    public static float horizontalDistanceBetweenPoses(Pose pose1, Pose pose2) {
+        float dx = pose1.tx() - pose2.tx();
+        float dz = pose1.tz() - pose2.tz();
+
+        // Compute the straight-line distance.
+        return (float) Math.sqrt(dx * dx + dz * dz);
+    }
+
     /**
      * computes the distance between to poses
      *
@@ -55,55 +63,51 @@ public class AR {
      * @param floor  the floor plane
      * @return ArrayList of the objects in the session
      */
-    public static ArrayList<ArrayList<float[]>> getObjects(FloatBuffer points, Plane floor) {
-        if(floor == null)
+    public static ArrayList<ArrayList<float[]>> getObjects(float[] points, Plane floor) {
+        if (floor == null)
             return new ArrayList<>();
         ArrayList<float[]> allPoints = new ArrayList<>();
-        for (int i = 0; i < points.remaining(); i += 4) {
-            float[] currPoint = {points.get(i), points.get(i + 1), points.get(i + 2), points.get(i + 3)};
+        for (int i = 0; i < points.length; i += 4) {
+            float[] currPoint = {points[i], points[i + 1], points[i + 2], points[i + 3]};
             //Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
             // makes sure the point isn't on the floor
             if (currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
                 continue;
             }
             if (currPoint[3] > 0.3) {
-                allPoints.add(binarySearch(currPoint, allPoints), currPoint);
+                allPoints.add(currPoint);
             }
         }
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
+        ArrayList<Integer> checked_indexes = new ArrayList<>();
         float distanceThreshold = 0.3f;
-        for (float[] currPoint : allPoints) {
-            // check that the point isn't on the floor
-            // threshold for distance from points in already found objects
-            //TODO can do better in classifying objects using using smarter clustering algorithms
-            boolean foundObject = false;
-            for (ArrayList<float[]> object : objects) {
-                if (foundObject) {
-                    break;
+        int object_index = -1;
+        int point_index = -1;
+        int next_point = 0;
+        while (checked_indexes.size() != allPoints.size()) {
+            if (object_index == -1 || objects.get(object_index).size() <= point_index) {
+                ArrayList<float[]> object = new ArrayList<>();
+                while (checked_indexes.contains(next_point)) {
+                    next_point++;
                 }
-                int index = binarySearch(currPoint, object);
-                if(index != object.size()) {
-                    if (distanceBetweenPoses(currPoint, object.get(index)) < distanceThreshold) {
-                        object.add(index, currPoint);
-                        foundObject = true;
-                    }
-                }
-                else {
-                    if (distanceBetweenPoses(currPoint, object.get(index - 1)) < distanceThreshold) {
-                        object.add(index, currPoint);
-                        foundObject = true;
-                    }
-                }
-                if (index < object.size() - 1 && distanceBetweenPoses(currPoint, object.get(index + 1)) < distanceThreshold) {
-                    object.add(index, currPoint);
-                    foundObject = true;
-                }
+                object.add(allPoints.get(next_point));
+                objects.add(object);
+                object_index++;
+                next_point++;
+                point_index = 0;
+                continue;
             }
-            // new object detected
-            if (!foundObject) {
-                ArrayList<float[]> newObject = new ArrayList<float[]>();
-                newObject.add(currPoint);
-                objects.add(newObject);
+            ArrayList<float[]> object = objects.get(object_index);
+            while (object.size() > point_index) {
+                for (int i = 0; i < allPoints.size(); i++) {
+                    if (checked_indexes.contains(i))
+                        continue;
+                    if (distanceBetweenPoses(object.get(point_index), allPoints.get(i)) < distanceThreshold) {
+                        object.add(allPoints.get(i));
+                        checked_indexes.add(i);
+                    }
+                }
+                point_index++;
             }
         }
         return objects;
@@ -129,8 +133,7 @@ public class AR {
             } else if (midX > pointX) {
                 max = (max + min) / 2;
             } else {
-                if(max - min == 1)
-                {
+                if (max - min == 1) {
                     return max;
                 }
                 min = (max + min) / 2;
@@ -238,7 +241,7 @@ public class AR {
                 if (height > 0.6 && height < 2) {
                     if (floor == null) {
                         floor = plane;
-                    } else if (max(floor.getExtentZ(),floor.getExtentX()) < max(plane.getExtentX(), plane.getExtentZ())) {
+                    } else if (max(floor.getExtentZ(), floor.getExtentX()) < max(plane.getExtentX(), plane.getExtentZ())) {
                         // if this plane if bigger in one of his dimensions than the largest of the current found
                         // floor's dimensions than it's more likely to be the actual floor
                         floor = plane;
@@ -285,7 +288,7 @@ public class AR {
         float min_X_width = 10000;
         for (float i = -maxX + 0.5f; i <= maxX - 0.5f; i += 0.1) {
             width = Width_Of_Plane(0, 0, i, 0, points);
-            if(width == -1)
+            if (width == -1)
                 continue;
             if (width < min_X_width)
                 min_X_width = width;
@@ -298,11 +301,67 @@ public class AR {
         float min_Z_width = 10000;
         for (float i = -maxZ + 0.5f; i < maxZ - 0.5f; i += 0.1) {
             width = Width_Of_Plane(0, 0, 0, i, points);
-            if(width == -1)
+            if (width == -1)
                 continue;
             if (width < min_Z_width)
                 min_Z_width = width;
         }
         return min_X_width < min_Z_width ? min_X_width : min_Z_width;
+    }
+
+    private static ArrayList<ArrayList<HitResult>> findAllLeftRightOnLines(float[] pixelLeftUp, float[] pixelRightUp, float[] pixelLeftDown, float[] pixelRightDown, Frame frame) {
+        float right_deltaY = pixelRightDown[1] - pixelRightUp[1];
+        float right_deltaX = pixelRightDown[0] - pixelRightUp[0];
+        float left_deltaY = pixelLeftDown[1] - pixelLeftUp[1];
+        float left_deltaX = pixelLeftDown[0] - pixelLeftUp[0];
+        ArrayList<HitResult> allRight = new ArrayList<>();
+        ArrayList<HitResult> allLeft = new ArrayList<>();
+        float num_hits = 50f;
+        // get all locations on left side and right side
+        for (float i = 0; i < num_hits; i++) {
+            allRight.addAll(frame.hitTest(pixelRightUp[0] + right_deltaX * i / num_hits, pixelRightUp[1] + right_deltaY * i / num_hits));
+            allLeft.addAll(frame.hitTest(pixelLeftUp[0] + left_deltaX * i / num_hits, pixelLeftUp[1] + left_deltaY * i / num_hits));
+        }
+        ArrayList<ArrayList<HitResult>> res = new ArrayList<>();
+        res.add(allRight);
+        res.add(allLeft);
+        return res;
+    }
+
+    public static float sameHeightBetweenLines(float[] pixelLeftUp, float[] pixelRightDown, Frame frame) {
+        return -1.0f;
+    }
+
+    static float findMinDistBetweenLines(float[] pixelLeftUp, float[] pixelRightUp, float[] pixelLeftDown, float[] pixelRightDown, Frame frame) {
+        ArrayList<ArrayList<HitResult>> rightLeft = findAllLeftRightOnLines(pixelLeftUp, pixelRightUp, pixelLeftDown, pixelRightDown, frame);
+        ArrayList<HitResult> allRight = rightLeft.get(0);
+        ArrayList<HitResult> allLeft = rightLeft.get(1);
+        float minDist = 300f;
+        Pose cameraPose = frame.getCamera().getPose();
+        for (HitResult r : allRight) {
+            Pose rPose = r.getHitPose();
+            if (distanceBetweenPoses(rPose, cameraPose) > 5) // caught a point behind the door
+                continue;
+            for (HitResult l : allLeft) {
+                Pose lPose = l.getHitPose();
+                if (distanceBetweenPoses(lPose, cameraPose) > 5) // caught a point behind the door
+                    continue;
+                float dis = horizontalDistanceBetweenPoses(rPose, lPose);
+                minDist = dis < minDist ? dis : minDist;
+            }
+        }
+        if (minDist == 300f) {
+            return -1.0f;
+        }
+        return minDist;
+    }
+
+    static float[] bufferToArray(FloatBuffer f) {
+        float[] points = new float[f.remaining()];
+        for (int i = 0; i < points.length; i++) {
+            points[i] = f.get();
+        }
+        f.rewind();
+        return points;
     }
 }

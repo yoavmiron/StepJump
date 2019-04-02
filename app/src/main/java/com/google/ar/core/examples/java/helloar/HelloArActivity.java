@@ -25,6 +25,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.Surface;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -59,6 +60,7 @@ import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationExceptio
 
 import java.io.IOException;
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
 import javax.microedition.khronos.egl.EGLConfig;
@@ -90,6 +92,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private final PointCloudRenderer pointCloudRenderer = new PointCloudRenderer();
     private OCD ocd;
     private long counter = 0;
+    private int door_counter = -1;
+    private float[] door_widths;
+    private final int avg_times = 20;
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
@@ -139,6 +144,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         textView = findViewById(R.id.textView);
 
         installRequested = false;
+
+        door_widths = new float[avg_times];
     }
 
     @Override
@@ -294,9 +301,16 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             Frame frame = session.update();
             Camera camera = frame.getCamera();
             counter++;
+            String message = " ";
+            Image image = null;
+            try {
+                image = frame.acquireCameraImage();
+            } catch (Exception ignored) {
+
+            }
             if (counter % 20 == 0) {
                 try {
-                    Image image = frame.acquireCameraImage();
+
                     // OCD CODE
                     if (!createdOCD) {
                         try {
@@ -316,9 +330,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     // important
                     int height = image.getHeight();
                     int width = image.getWidth();
-                    realWidth = screenHeight*height/width;
+                    realWidth = screenHeight * height / width;
                     ArrayList<OCD.Recognition> recognitions = ocd.detect(image);
-                    image.close();
 
 
                     //#############################################
@@ -326,8 +339,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
                     //#############################################
                     // AR CODE
-
-                    String message = " ";
 
                     ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
                     floor = AR.getFloor(ALPlanes, camera);
@@ -350,9 +361,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     for (int i = 0; i < recognitions.size(); i++) {
                         float top = recognitions.get(i).location.top * (float) screenHeight;
                         float bottom = recognitions.get(i).location.bottom * (float) screenHeight;
-                        int deltaW = realWidth-screenWidth;
-                        float left = recognitions.get(i).location.left * (float) realWidth - deltaW/2;
-                        float right = recognitions.get(i).location.right * (float) realWidth - deltaW/2;
+                        int deltaW = realWidth - screenWidth;
+                        float left = recognitions.get(i).location.left * (float) realWidth - deltaW / 2;
+                        float right = recognitions.get(i).location.right * (float) realWidth - deltaW / 2;
                         top = top > screenHeight - 1 ? screenHeight - 1 : top;
                         top = top < 0 ? 0 : top;
                         bottom = bottom > screenHeight - 1 ? screenHeight - 1 : bottom;
@@ -363,21 +374,36 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         right = right < 0 ? 0 : right;
                         float[] pixel1 = {left, bottom};
                         float[] pixel2 = {right, bottom};
+                        float[] leftUp = {left, top};
+                        float[] rightDown = {right, bottom};
+                        float[] leftDown = {left, top};
+                        float[] rightUp = {right, bottom};
                         ourView.setRect(left, top, right, bottom);
                         ourView.invalidate();
                         float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
                         object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
                         center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
+
+
+                        object_widths[i] = AR.findMinDistBetweenLines(leftUp, rightUp, leftDown, rightDown, frame);
+
+
                         System.out.print(7);
                         // somekind of show: width of lable is object_widths[i]
                         // somekind of show: distance of lable from phone is center_of_objects[i]
                     }
                     if (object_widths.length != 0 && object_widths[0] != -1 && recognitions.get(0).confidence > 0.7) {
+                        if (door_counter == -1) {
+                            door_counter = 0;
+                        }
                         message += "width of ";
                         message += recognitions.get(0).label;
                         message += " is ";
                         message += object_widths[0];
                     } else if (object_widths.length != 0 && recognitions.get(0).confidence > 0.7) {
+                        if (door_counter == -1) {
+                            door_counter = 0;
+                        }
                         message += "recognized a ";
                         message += recognitions.get(0).label;
                     }
@@ -387,6 +413,41 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
                 } catch (Throwable ignored) {
                 }
+            }
+            if (image != null) {
+                if (door_counter >= 0 && door_counter < avg_times) {
+                    if (ocd != null) {
+                        ArrayList<double[]> lines = ocd.imageProcess(image);
+                        double[] left_line = lines.get(0);
+                        double[] right_line = lines.get(1);
+                        if (left_line != null && right_line != null) {
+                            float curr_width = AR.findMinDistBetweenLines(new float[]{(float)left_line[0],(float)left_line[1]}, new float[]{(float)right_line[0],(float)right_line[1]}, new float[]{(float)left_line[2],(float)left_line[3]}, new float[]{(float)right_line[2],(float)right_line[3]}, frame);
+                            if (curr_width == -1f) {
+                                door_counter--;
+                            } else {
+                                door_widths[door_counter] = curr_width;
+                            }
+                            door_counter++;
+                        }
+                    }
+                } else if (door_counter >= avg_times) {
+                    door_counter++;
+                    if (door_counter == 6 * avg_times) {
+                        door_counter = -1;
+                    }
+                    float avg_width = 0.0f;
+                    for (int k = 0; k < avg_times; k++) {
+                        avg_width += door_widths[k];
+                    }
+                    avg_width /= avg_times;
+                    message += "\n";
+                    message += "new width is: ";
+                    message += avg_width;
+                    textView.setText(message);
+                }
+
+
+                image.close();
             }
             //#############################################
 
@@ -421,7 +482,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             pointCloudRenderer.update(pointCloud);
             pointCloudRenderer.draw(viewmtx, projmtx);
 
-            ArrayList<ArrayList<float[]>> objects = AR.getObjects(pointCloud.getPoints(), floor);
 
             // Application is responsible for releasing the point cloud resources after
             // using it.
@@ -468,10 +528,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private void handleTap(Frame frame, Camera camera) {
         MotionEvent tap = tapHelper.poll();
         if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
-            try {
-                Image img = frame.acquireCameraImage();
-                int a = ocd.imageProcess(img);
-            }catch(Exception e){}
             for (HitResult hit : frame.hitTest(tap)) {
                 // Check if any plane was hit, and if it was hit inside the plane polygon
                 Trackable trackable = hit.getTrackable();
