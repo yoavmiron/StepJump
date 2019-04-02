@@ -430,7 +430,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             pointCloudRenderer.update(pointCloud);
             pointCloudRenderer.draw(viewmtx, projmtx);
 
-            ArrayList<ArrayList<float[]>> objects = AR.getObjects(pointCloud.getPoints(), floor);
 
             // Application is responsible for releasing the point cloud resources after
             // using it.

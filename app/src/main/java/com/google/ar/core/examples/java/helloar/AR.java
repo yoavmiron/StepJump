@@ -63,13 +63,12 @@ public class AR {
      * @param floor  the floor plane
      * @return ArrayList of the objects in the session
      */
-    public static ArrayList<ArrayList<float[]>> getObjects(FloatBuffer points, Plane floor) {
+    public static ArrayList<ArrayList<float[]>> getObjects(float[] points, Plane floor) {
         if (floor == null)
             return new ArrayList<>();
-        final float[] arr_points = points.array();
         ArrayList<float[]> allPoints = new ArrayList<>();
-        for (int i = 0; i < arr_points.length; i += 4) {
-            float[] currPoint = {arr_points[i], arr_points[i + 1], arr_points[i + 2], arr_points[i + 3]};
+        for (int i = 0; i < points.length; i += 4) {
+            float[] currPoint = {points[i], points[i + 1], points[i + 2], points[i + 3]};
             //Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
             // makes sure the point isn't on the floor
             if (currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
@@ -79,27 +78,39 @@ public class AR {
                 allPoints.add(currPoint);
             }
         }
-        /*float[][] distances = new float[allPoints.size()][allPoints.size()];
-        for (int i = 0; i < allPoints.size(); i++) {
-            for (int j = 0; j < allPoints.size(); j++) {
-                distances[i][j] = distanceBetweenPoses(allPoints.get(i),allPoints.get(j));
-            }
-        }*/
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
         ArrayList<Integer> checked_indexes = new ArrayList<>();
         float distanceThreshold = 0.3f;
-        /*int object_index = -1;
+        int object_index = -1;
         int point_index = -1;
         int next_point = 0;
-        while(checked_indexes.size() != allPoints.size()){
-            if(object_index == -1){
-                ArrayList<float[]>object = new ArrayList<>();
-                while(checked_indexes.contains(next_point)){
-
+        while (checked_indexes.size() != allPoints.size()) {
+            if (object_index == -1 || objects.get(object_index).size() <= point_index) {
+                ArrayList<float[]> object = new ArrayList<>();
+                while (checked_indexes.contains(next_point)) {
+                    next_point++;
+                }
+                object.add(allPoints.get(next_point));
+                objects.add(object);
+                object_index++;
+                next_point++;
+                point_index = 0;
+                continue;
+            }
+            ArrayList<float[]> object = objects.get(object_index);
+            while (object.size() > point_index) {
+                for (int i = 0; i < allPoints.size(); i++) {
+                    if(checked_indexes.contains(i))
+                        continue;
+                    if(distanceBetweenPoses(object.get(point_index),allPoints.get(i)) < distanceThreshold){
+                        object.add(allPoints.get(i));
+                        checked_indexes.add(i);
+                    }
                 }
             }
-        }*/
-        for (float[] currPoint : allPoints) {
+        }
+        return objects;
+        /*for (float[] currPoint : allPoints) {
             // check that the point isn't on the floor
             // threshold for distance from points in already found objects
             //TODO can do better in classifying objects using using smarter clustering algorithms
@@ -132,7 +143,7 @@ public class AR {
                 objects.add(newObject);
             }
         }
-        return objects;
+        return objects;*/
     }
 
 
