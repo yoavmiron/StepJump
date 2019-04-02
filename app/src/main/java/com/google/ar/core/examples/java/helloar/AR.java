@@ -84,11 +84,11 @@ public class AR {
             for (int j = 0; j < allPoints.size(); j++) {
                 distances[i][j] = distanceBetweenPoses(allPoints.get(i),allPoints.get(j));
             }
-        }
+        }*/
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
         ArrayList<Integer> checked_indexes = new ArrayList<>();
         float distanceThreshold = 0.3f;
-        int object_index = -1;
+        /*int object_index = -1;
         int point_index = -1;
         int next_point = 0;
         while(checked_indexes.size() != allPoints.size()){
