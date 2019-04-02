@@ -474,8 +474,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         // Compute the straight-line distance.
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
-
-
+    
     /**
      * computes the distance between to poses
      *
