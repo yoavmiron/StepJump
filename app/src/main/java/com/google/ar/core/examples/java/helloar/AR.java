@@ -66,20 +66,39 @@ public class AR {
     public static ArrayList<ArrayList<float[]>> getObjects(FloatBuffer points, Plane floor) {
         if (floor == null)
             return new ArrayList<>();
+        final float[] arr_points = points.array();
         ArrayList<float[]> allPoints = new ArrayList<>();
-        for (int i = 0; i < points.remaining(); i += 4) {
-            float[] currPoint = {points.get(i), points.get(i + 1), points.get(i + 2), points.get(i + 3)};
+        for (int i = 0; i < arr_points.length; i += 4) {
+            float[] currPoint = {arr_points[i], arr_points[i + 1], arr_points[i + 2], arr_points[i + 3]};
             //Pose pointPose = new Pose(currPoint, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
             // makes sure the point isn't on the floor
             if (currPoint[1] < floor.getCenterPose().getTranslation()[1] + 0.05) {
                 continue;
             }
             if (currPoint[3] > 0.3) {
-                allPoints.add(binarySearch(currPoint, allPoints), currPoint);
+                allPoints.add(currPoint);
+            }
+        }
+        /*float[][] distances = new float[allPoints.size()][allPoints.size()];
+        for (int i = 0; i < allPoints.size(); i++) {
+            for (int j = 0; j < allPoints.size(); j++) {
+                distances[i][j] = distanceBetweenPoses(allPoints.get(i),allPoints.get(j));
             }
         }
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
+        ArrayList<Integer> checked_indexes = new ArrayList<>();
         float distanceThreshold = 0.3f;
+        int object_index = -1;
+        int point_index = -1;
+        int next_point = 0;
+        while(checked_indexes.size() != allPoints.size()){
+            if(object_index == -1){
+                ArrayList<float[]>object = new ArrayList<>();
+                while(checked_indexes.contains(next_point)){
+
+                }
+            }
+        }*/
         for (float[] currPoint : allPoints) {
             // check that the point isn't on the floor
             // threshold for distance from points in already found objects
@@ -322,8 +341,8 @@ public class AR {
         float num_hits = 50f;
         // get all locations on left side and right side
         for (float i = 0; i < num_hits; i++) {
-            allRight.addAll(frame.hitTest(pixelRightUp[0] + right_deltaX*i/num_hits, pixelRightUp[1] + right_deltaY*i/num_hits));
-            allLeft.addAll(frame.hitTest(pixelLeftUp[0] + left_deltaX*i/num_hits, pixelLeftUp[1] + left_deltaY*i/num_hits));
+            allRight.addAll(frame.hitTest(pixelRightUp[0] + right_deltaX * i / num_hits, pixelRightUp[1] + right_deltaY * i / num_hits));
+            allLeft.addAll(frame.hitTest(pixelLeftUp[0] + left_deltaX * i / num_hits, pixelLeftUp[1] + left_deltaY * i / num_hits));
         }
         ArrayList<ArrayList<HitResult>> res = new ArrayList<>();
         res.add(allRight);
@@ -343,11 +362,11 @@ public class AR {
         Pose cameraPose = frame.getCamera().getPose();
         for (HitResult r : allRight) {
             Pose rPose = r.getHitPose();
-            if(distanceBetweenPoses(rPose,cameraPose) > 5) // caught a point behind the door
+            if (distanceBetweenPoses(rPose, cameraPose) > 5) // caught a point behind the door
                 continue;
             for (HitResult l : allLeft) {
                 Pose lPose = l.getHitPose();
-                if(distanceBetweenPoses(lPose,cameraPose) > 5) // caught a point behind the door
+                if (distanceBetweenPoses(lPose, cameraPose) > 5) // caught a point behind the door
                     continue;
                 float dis = horizontalDistanceBetweenPoses(rPose, lPose);
                 minDist = dis < minDist ? dis : minDist;
