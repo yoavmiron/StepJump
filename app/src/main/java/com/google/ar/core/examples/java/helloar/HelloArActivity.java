@@ -398,14 +398,11 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         message += recognitions.get(0).label;
                         message += " is ";
                         message += object_widths[0];
-                        if (door_counter == -1) {
-                            door_counter = 0;
-                        }
-                        if(door_counter >= 0 && door_counter < avg_times){
+                        if(door_counter < avg_times){
                             door_widths[door_counter] = object_widths[0];
                             door_counter++;
                         }
-                        else if(door_counter >= avg_times){
+                        else{
                             float avg_width = 0.0f;
                             for(int k = 0; k<avg_times;k++){
                                 avg_width += door_widths[k];
@@ -420,7 +417,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         message += recognitions.get(0).label;
                     }
                     else if(object_widths.length == 0){
-                        door_counter = -1;
+                        door_counter = 0;
                     }
                     if (!message.equals("")) {
                         textView.setText(message);
