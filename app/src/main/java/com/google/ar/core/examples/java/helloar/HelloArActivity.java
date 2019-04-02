@@ -25,6 +25,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.Surface;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -59,6 +60,7 @@ import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationExceptio
 
 import java.io.IOException;
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
 import javax.microedition.khronos.egl.EGLConfig;

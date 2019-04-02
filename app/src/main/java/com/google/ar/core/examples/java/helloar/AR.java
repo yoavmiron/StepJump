@@ -107,6 +107,7 @@ public class AR {
                         checked_indexes.add(i);
                     }
                 }
+                point_index++;
             }
         }
         return objects;
@@ -387,5 +388,15 @@ public class AR {
             return -1.0f;
         }
         return minDist;
+    }
+
+    static float[] bufferToArray(FloatBuffer f){
+        float[] points = new float[f.remaining()];
+        for(int i = 0; i<points.length;i++)
+        {
+            points[i] = f.get();
+        }
+        f.rewind();
+        return points;
     }
 }
