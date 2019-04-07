@@ -25,7 +25,6 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.Surface;
-import android.widget.ArrayAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -60,11 +59,12 @@ import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationExceptio
 
 import java.io.IOException;
 
-import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+
+import static com.google.ar.core.examples.java.helloar.OCD.transformRatioToScreen;
 
 /**
  * This is a simple example that shows how to create an augmented reality (AR) application using the
@@ -353,43 +353,41 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     float[] center_of_objects = new float[recognitions.size()];
 
                     for (int i = 0; i < recognitions.size(); i++) {
-                        float top = recognitions.get(i).location.top * (float) screenHeight;
-                        float bottom = recognitions.get(i).location.bottom * (float) screenHeight;
-                        int deltaW = realWidth - screenWidth;
-                        float left = recognitions.get(i).location.left * (float) realWidth - deltaW / 2;
-                        float right = recognitions.get(i).location.right * (float) realWidth - deltaW / 2;
-                        top = top > screenHeight - 1 ? screenHeight - 1 : top;
-                        top = top < 0 ? 0 : top;
-                        bottom = bottom > screenHeight - 1 ? screenHeight - 1 : bottom;
-                        bottom = bottom < 0 ? 0 : bottom;
-                        left = left > screenWidth - 1 ? screenWidth - 1 : left;
-                        left = left < 0 ? 0 : left;
-                        right = right > screenWidth - 1 ? screenWidth - 1 : right;
-                        right = right < 0 ? 0 : right;
-                        float[] pixel1 = {left, bottom};
-                        float[] pixel2 = {right, bottom};
-                        float[] leftUp = {left, top};
-                        float[] rightDown = {right, bottom};
-                        float[] leftDown = {left, top};
-                        float[] rightUp = {right, bottom};
-                        ourView.setRect(left, top, right, bottom);
+                        // transform from 0-1 to screen height and width
+                        float top = recognitions.get(i).location.top;
+                        float bottom = recognitions.get(i).location.bottom;
+                        float left = recognitions.get(i).location.left;
+                        float right = recognitions.get(i).location.right;
+                        float[] transformed_pixels = OCD.transformRatioToScreen(top, bottom, left, right, realWidth, screenWidth, screenHeight);
+                        float[] pixel1 = {transformed_pixels[2], transformed_pixels[1]};
+                        float[] pixel2 = {transformed_pixels[3], transformed_pixels[1]};
+                        float[] leftUp = {transformed_pixels[2], transformed_pixels[0]};
+                        float[] rightDown = {transformed_pixels[3], transformed_pixels[1]};
+                        float[] leftDown = {transformed_pixels[2], transformed_pixels[0]};
+                        float[] rightUp = {transformed_pixels[3], transformed_pixels[1]};
+                        ourView.setRect(transformed_pixels[2], transformed_pixels[0], transformed_pixels[3], transformed_pixels[1]);
                         ourView.invalidate();
-                        float[] centerPixel = {(left + right) / 2.0f, (top + bottom) / 2.0f};
+                        float[] centerPixel = {(transformed_pixels[2] + transformed_pixels[3]) / 2.0f, (transformed_pixels[0] + transformed_pixels[1]) / 2.0f};
                         object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
                         center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
 
 
                         object_widths[i] = AR.findMinDistBetweenLines(leftUp, rightUp, leftDown, rightDown, frame);
-                        float cv_top = recognitions.get(i).location.top * (float) ocd.cropSize * 0.9f;
-                        float cv_bottom = recognitions.get(i).location.bottom * (float) ocd.cropSize * 1.1f;
-                        cv_bottom = cv_bottom > 299f ? 299f : cv_bottom;
-                        float cv_left = recognitions.get(i).location.left * (float) ocd.cropSize * 0.9f;
-                        float cv_right = recognitions.get(i).location.right * (float) ocd.cropSize * 1.1f;
-                        cv_right = cv_right > 299f ? 299f : cv_right;
-                        ArrayList<double[]> lines = ocd.imageProcess(image, top, cv_bottom, cv_left, cv_right);
-                        double[] left_line = lines.get(0);
-                        double[] right_line = lines.get(1);
-                        object_widths[i] = AR.findMinDistBetweenLines(new float[]{(float) left_line[0], (float) left_line[1]}, new float[]{(float) right_line[0], (float) right_line[1]}, new float[]{(float) left_line[2], (float) left_line[3]}, new float[]{(float) right_line[2], (float) right_line[3]}, frame);
+                        // transform from 300x300 to 640x480
+                        float cv_top = recognitions.get(i).location.top * (float) height * 0.9f;
+                        float cv_bottom = recognitions.get(i).location.bottom * (float) height * 1.1f;
+                        cv_bottom = cv_bottom > height - 1 ? height - 1 : cv_bottom;
+                        float cv_left = recognitions.get(i).location.left * (float) width * 0.9f;
+                        float cv_right = recognitions.get(i).location.right * (float) width * 1.1f;
+                        cv_right = cv_right > width - 1 ? width - 1 : cv_right;
+                        double[][] lines = ocd.imageProcess(image, cv_top, cv_bottom, cv_left, cv_right);
+                        double[] left_line = lines[0];
+                        double[] right_line = lines[1];
+                        if(left_line != null && right_line != null) {
+                            float[] transformed_cv_left = OCD.transformRatioToScreen((float) left_line[1], (float) left_line[3], (float) left_line[0], (float) left_line[2], realWidth, screenWidth, screenHeight);
+                            float[] transformed_cv_right = OCD.transformRatioToScreen((float) right_line[1], (float) right_line[3], (float) right_line[0], (float) right_line[2], realWidth, screenWidth, screenHeight);
+                            object_widths[i] = AR.findMinDistBetweenLines(new float[]{transformed_cv_left[2], transformed_cv_left[0]}, new float[]{transformed_cv_right[2], transformed_cv_right[0]}, new float[]{transformed_cv_left[3], transformed_cv_left[1]}, new float[]{transformed_cv_right[3], transformed_cv_right[1]}, frame);
+                        }
                         // somekind of show: width of lable is object_widths[i]
                         // somekind of show: distance of lable from phone is center_of_objects[i]
                     }
@@ -398,13 +396,12 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         message += recognitions.get(0).label;
                         message += " is ";
                         message += object_widths[0];
-                        if(door_counter < avg_times){
+                        if (door_counter < avg_times) {
                             door_widths[door_counter] = object_widths[0];
                             door_counter++;
-                        }
-                        else{
+                        } else {
                             float avg_width = 0.0f;
-                            for(int k = 0; k<avg_times;k++){
+                            for (int k = 0; k < avg_times; k++) {
                                 avg_width += door_widths[k];
                             }
                             avg_width /= avg_times;
@@ -415,8 +412,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     } else if (object_widths.length != 0 && recognitions.get(0).confidence > 0.7) {
                         message += "recognized a ";
                         message += recognitions.get(0).label;
-                    }
-                    else if(object_widths.length == 0){
+                    } else if (object_widths.length == 0) {
                         door_counter = 0;
                     }
                     if (!message.equals("")) {

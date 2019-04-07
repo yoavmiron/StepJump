@@ -3,17 +3,12 @@ package com.google.ar.core.examples.java.helloar;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.ImageFormat;
 import android.graphics.Matrix;
-import android.graphics.Rect;
 import android.graphics.RectF;
-import android.graphics.YuvImage;
 import android.media.Image;
 import org.tensorflow.lite.Interpreter;
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -248,22 +243,28 @@ public class OCD
         rgbFrameBitmap.setPixels(rgbBytes, 0, width, 0, 0, width, height);
         final Canvas canvas = new Canvas(croppedBitmap);
         canvas.drawBitmap(rgbFrameBitmap, frameTocropTransform, null);
-//        imageConverter = new Runnable() {
-//            @Override
-//            public void run() {
-//                ImageUtils.convertYUV420SPToARGB8888();
-//            }
-//        }
-//
-//        ByteArrayOutputStream baOutputStream = new ByteArrayOutputStream();
-//        YuvImage yuvImage = new YuvImage(compositeByteArray, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
-//        yuvImage.compressToJpeg(new Rect(0, 0, image.getWidth(), image.getHeight()), 75, baOutputStream);
-//        byte[] byteForBitmap = baOutputStream.toByteArray();
-//        Bitmap b =  BitmapFactory.decodeByteArray(byteForBitmap, 0, byteForBitmap.length);
-//        return Bitmap.createScaledBitmap(b, inputSize, inputSize, false);
     }
-    public ArrayList<double[]> imageProcess(Image image, float top,float bottom, float left, float right){
+
+
+    double[][] imageProcess(Image image, float top, float bottom, float left, float right){
         prepareImage(image);
-        return cvProc.process(croppedBitmap, top, bottom, left, right);
+        return cvProc.process(rgbFrameBitmap, top, bottom, left, right);
+    }
+
+    static float[] transformRatioToScreen(float top, float bottom, float left, float right, int realWidth, int screenWidth, int screenHeight){
+        top *= (float) screenHeight;
+        bottom *= (float) screenHeight;
+        int deltaW = realWidth - screenWidth;
+        left *= (float) realWidth - deltaW / 2;
+        right *= (float) realWidth - deltaW / 2;
+        top = top > screenHeight - 1 ? screenHeight - 1 : top;
+        top = top < 0 ? 0 : top;
+        bottom = bottom > screenHeight - 1 ? screenHeight - 1 : bottom;
+        bottom = bottom < 0 ? 0 : bottom;
+        left = left > screenWidth - 1 ? screenWidth - 1 : left;
+        left = left < 0 ? 0 : left;
+        right = right > screenWidth - 1 ? screenWidth - 1 : right;
+        right = right < 0 ? 0 : right;
+        return new float[]{top, bottom, left, right};
     }
 }

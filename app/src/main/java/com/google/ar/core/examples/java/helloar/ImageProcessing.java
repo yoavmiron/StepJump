@@ -16,7 +16,23 @@ class ImageProcessing {
     static private final int numOfDirection = 4;
 
 
-    static ArrayList<double[]> detectDoor(Mat mRgba) {
+    static double[][] getLinesOfDoor(Mat mRgba) {
+        //        Size size = new Size(640, 480);
+//        Imgproc.resize(mRgba, mRgba, size);
+        Mat lines = new Mat();
+        double[][] vecs = ImageProcessing.houghLines(mRgba, lines);
+
+        Point[] edges = new Point[numOfDirection]; // 0-topLeft 1-topRight 2-bottomLeft 3-bottomRight
+        for (int i = 0; i < edges.length; i++)
+            edges[i] = new Point(0, 0);
+        ImageProcessing.detectCorners(mRgba, edges);
+
+        return vecs;
+
+    }
+
+
+    static Mat detectDoor(Mat mRgba) {
 
 //        Size size = new Size(640, 480);
 //        Imgproc.resize(mRgba, mRgba, size);
@@ -35,7 +51,7 @@ class ImageProcessing {
             vecs.add(vec);
 //        Point[] pointsOfIntersection = getPointsOfIntersection(lines);
         }
-        return vecs;
+        return mRgba;
     }
 
 
@@ -60,7 +76,7 @@ class ImageProcessing {
     }
 
 
-    private static void houghLines(Mat initMat, Mat lines) {
+    private static double[][] houghLines(Mat initMat, Mat lines) {
         Mat initImg; // initial image
         Mat greyImg; // converted to grey
 
@@ -81,20 +97,15 @@ class ImageProcessing {
                 minLineSize, lineGap);
 
         linesFilter linesFilter = new linesFilter();
-        lines = linesFilter.LinesFilter(greyImg, lines);
-
-        for (int x = 0; x < lines.rows(); x++) {
-            double[] vec = lines.get(x, 0);
-            double x1 = vec[0],
-                    y1 = vec[1],
-                    x2 = vec[2],
-                    y2 = vec[3];
-            Point start = new Point(x1, y1);
-            Point end = new Point(x2, y2);
+        double[][] linesPoints = linesFilter.LinesFilter(greyImg, lines);
+        for (int x=0; x<4; x++) {
+            Point start = new Point(linesPoints[x][0], linesPoints[x][1]);
+            Point end = new Point(linesPoints[x][2], linesPoints[x][3]);
 
             // draw the line on the init image
-//            Imgproc.line(initImg, start, end, new Scalar(0, 255, 0, 255), 5);
+            Imgproc.line(initImg, start, end, new Scalar(0, 255, 0, 255), 5);
         }
+        return linesPoints;
     }
 
 

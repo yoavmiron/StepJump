@@ -1,5 +1,9 @@
 package com.google.ar.core.examples.java.helloar;
 import org.opencv.core.Mat;
+import org.opencv.core.Point;
+import org.opencv.core.Scalar;
+import org.opencv.imgproc.Imgproc;
+
 import java.util.ArrayList;
 
 /**
@@ -17,7 +21,7 @@ public class linesFilter {
     }
 
 
-    Mat LinesFilter(Mat img, Mat lines)  {
+    double[][] LinesFilter(Mat img, Mat lines)  {
 
         ArrayList<Mat> lines_list = new ArrayList<>();
         ArrayList<Mat> RightLinesList = new ArrayList<>();
@@ -58,38 +62,51 @@ public class linesFilter {
 //            lines_list.add(leftLine);
 //        }
 
-        if (LeftLinesList.size()!=0 )
+        if (LeftLinesList.size()!=0 ) {
             lines_list.add(LeftLinesList.get(0));
+        }
         else
             lines_list.add(null);
-        if (RightLinesList.size()!=0 )
+        if (RightLinesList.size()!=0 ) {
             lines_list.add(RightLinesList.get(0));
+        }
         else
             lines_list.add(null);
-        if (UpLinesList.size()!=0 )
+        if (UpLinesList.size()!=0 ) {
             lines_list.add(UpLinesList.get(0));
+        }
         else
             lines_list.add(null);
-        if (DownLinesList.size()!=0 )
+        if (DownLinesList.size()!=0 ) {
             lines_list.add(DownLinesList.get(0));
+        }
         else
             lines_list.add(null);
 
-//        lines_list.addAll(LeftLinesList);
-//        lines_list.addAll(RightLinesList);
-//        lines_list.addAll(UpLinesList);
-//        lines_list.addAll(DownLinesList);
+
+        double[][] linesPoints = new double[4][4];
 
         if(!lines.empty()) {
             Mat filtered_lines = new Mat(0, 4, lines.type());
 
-            for (int x = 0; x < lines_list.size(); x++) {
-                if(lines_list.get(x) != null)
+
+            for (int x = 0; x < 4 ; x++) {
+                if (lines_list.get(x) != null){
                     filtered_lines.push_back(lines_list.get(x));
+                    double[] vec = filtered_lines.get(filtered_lines.rows()-1, 0);
+                    linesPoints[x][0] = vec[0];
+                    linesPoints[x][1] = vec[1];
+                    linesPoints[x][2] = vec[2];
+                    linesPoints[x][3] = vec[3];
+                }
+                else{
+                    linesPoints[x] = null;
+
+                }
             }
-            return filtered_lines;
+
         }
-        return lines;
+        return linesPoints;
     }
 
 
