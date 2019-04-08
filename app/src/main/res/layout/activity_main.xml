@@ -32,6 +32,16 @@
         android:layout_height="wrap_content"
 
         android:alpha="1" />
+  
+      <com.google.ar.core.examples.java.helloar.CvHelper
+          android:id="@+id/CVview"
+          android:name="com.google.ar.core.examples.java.helloar.CvHelper"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:alpha="1"/>
+
+  
+  
 
   <TextView
       android:id="@+id/textView"

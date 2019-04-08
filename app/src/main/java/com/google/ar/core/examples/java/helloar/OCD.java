@@ -7,7 +7,9 @@ import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.media.Image;
+
 import org.tensorflow.lite.Interpreter;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -22,8 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
 
-public class OCD
-{
+public class OCD {
     // Only return this many results.
     private static final int NUM_DETECTIONS = 10;
     private final int height;
@@ -70,14 +71,12 @@ public class OCD
     /**
      * Class that represents a recognition in an image
      */
-    public class Recognition
-    {
+    public class Recognition {
         final RectF location;
         final String label;
         final float confidence;
 
-        public Recognition(RectF location, String label, float confidence)
-        {
+        public Recognition(RectF location, String label, float confidence) {
             this.location = location;
             this.label = label;
             this.confidence = confidence;
@@ -98,8 +97,7 @@ public class OCD
     }
 
 
-    private OCD(int width, int height, int orientation)
-    {
+    private OCD(int width, int height, int orientation) {
         this.width = width;
         this.height = height;
         rgbFrameBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
@@ -113,14 +111,13 @@ public class OCD
     }
 
     public static OCD create(final AssetManager assetManager,
-        final String modelFilename,
-        final String labelFilename,
-        final int inputSize,
-        final boolean isQuantized,
-        final int width,
-        final int height,
-        final int orientation) throws IOException
-    {
+                             final String modelFilename,
+                             final String labelFilename,
+                             final int inputSize,
+                             final boolean isQuantized,
+                             final int width,
+                             final int height,
+                             final int orientation) throws IOException {
         final OCD ocd = new OCD(width, height, orientation);
         ocd.tfLite = new Interpreter(loadModelFile(assetManager, modelFilename));
         ocd.tfLite.setNumThreads(NUM_THREADS);
@@ -151,8 +148,7 @@ public class OCD
         return ocd;
     }
 
-    public ArrayList<Recognition> detect(final Image image)
-    {
+    public ArrayList<Recognition> detect(final Image image) {
         prepareImage(image);
         croppedBitmap.getPixels(intValues, 0, croppedBitmap.getWidth(), 0, 0, croppedBitmap.getWidth(), croppedBitmap.getHeight());
         imgData.rewind();
@@ -188,10 +184,8 @@ public class OCD
         // Show the best detections.
         // after scaling them back to the input size.
         final ArrayList<Recognition> recognitions = new ArrayList<>(NUM_DETECTIONS);
-        for(int i = 0; i < NUM_DETECTIONS; i++)
-        {
-            if(outputScores[0][i] < 0.5)
-            {
+        for (int i = 0; i < NUM_DETECTIONS; i++) {
+            if (outputScores[0][i] < 0.5) {
                 continue;
             }
             final RectF detection =
@@ -214,8 +208,9 @@ public class OCD
     }
 
 
-
-    /** Memory-map the model file in Assets. */
+    /**
+     * Memory-map the model file in Assets.
+     */
     private static MappedByteBuffer loadModelFile(AssetManager assets, String modelFilename)
             throws IOException {
         AssetFileDescriptor fileDescriptor = assets.openFd(modelFilename);
@@ -226,8 +221,7 @@ public class OCD
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
     }
 
-    private void prepareImage(final Image image)
-    {
+    private void prepareImage(final Image image) {
         ByteBuffer cameraPlaneY = image.getPlanes()[0].getBuffer();
         ByteBuffer cameraPlaneU = image.getPlanes()[1].getBuffer();
         ByteBuffer cameraPlaneV = image.getPlanes()[2].getBuffer();
@@ -246,12 +240,12 @@ public class OCD
     }
 
 
-    double[][] imageProcess(Image image, float top, float bottom, float left, float right){
+    double[][] imageProcess(Image image, float top, float bottom, float left, float right, int orientation) {
         prepareImage(image);
-        return cvProc.process(rgbFrameBitmap, top, bottom, left, right);
+        return cvProc.process(rgbFrameBitmap, top, bottom, left, right, orientation);
     }
 
-    static float[] transformRatioToScreen(float top, float bottom, float left, float right, int realWidth, int screenWidth, int screenHeight){
+    static float[] transformRatioToScreen(float top, float bottom, float left, float right, int realWidth, int screenWidth, int screenHeight) {
         top *= (float) screenHeight;
         bottom *= (float) screenHeight;
         int deltaW = realWidth - screenWidth;

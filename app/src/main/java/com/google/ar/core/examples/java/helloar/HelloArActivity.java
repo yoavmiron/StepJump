@@ -57,6 +57,12 @@ import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.BaseLoaderCallback;
+import org.opencv.android.LoaderCallbackInterface;
+import org.opencv.core.Mat;
+
 import java.io.IOException;
 
 import java.util.ArrayList;
@@ -72,11 +78,18 @@ import static com.google.ar.core.examples.java.helloar.OCD.transformRatioToScree
  * plane to place a 3d model of the Android robot.
  */
 public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.Renderer {
+    static {
+        if (!OpenCVLoader.initDebug()) {
+            // problem
+        }
+    }
+
     private static final String TAG = HelloArActivity.class.getSimpleName();
 
     // Rendering. The Renderers are created here, and initialized when the GL surface is created.
     private GLSurfaceView surfaceView;
     private DetectionView ourView;
+    private CvHelper cvView;
 
     private boolean installRequested;
 
@@ -118,8 +131,26 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private int screenWidth;
     private int realWidth;
 
+    private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
+        @Override
+        public void onManagerConnected(int status) {
+            switch (status) {
+                case LoaderCallbackInterface.SUCCESS: {
+                    Log.i(TAG, "i don't know succes opencv something");
+                    Mat imageMat = new Mat();
+                }
+                break;
+                default: {
+                    super.onManagerConnected(status);
+                }
+                break;
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        OpenCVLoader.initDebug();
         super.onCreate(savedInstanceState);
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
@@ -128,6 +159,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         setContentView(R.layout.activity_main);
         surfaceView = findViewById(R.id.surfaceview);
         ourView = findViewById(R.id.ourView);
+        cvView = findViewById(R.id.CVview);
         displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
 
         // Set up tap listener.
@@ -151,7 +183,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     @Override
     protected void onResume() {
         super.onResume();
-
+        OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION, this, mLoaderCallback);
         if (session == null) {
             Exception exception = null;
             String message = null;
@@ -303,8 +335,13 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             counter++;
             String message = " ";
             if (counter % 20 == 0) {
+                Image image = null;
                 try {
-                    Image image = frame.acquireCameraImage();
+                    try {
+                        image = frame.acquireCameraImage();
+                    } catch (Exception e) {
+                        int a = 1;
+                    }
                     // OCD CODE
                     if (!createdOCD) {
                         try {
@@ -380,14 +417,37 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         float cv_left = recognitions.get(i).location.left * (float) width * 0.9f;
                         float cv_right = recognitions.get(i).location.right * (float) width * 1.1f;
                         cv_right = cv_right > width - 1 ? width - 1 : cv_right;
-                        double[][] lines = ocd.imageProcess(image, cv_top, cv_bottom, cv_left, cv_right);
+                        int orientation = getScreenOrientation();
+                        double[][] lines = ocd.imageProcess(image, cv_top, cv_bottom, cv_left, cv_right, orientation);
                         double[] left_line = lines[0];
                         double[] right_line = lines[1];
-                        if(left_line != null && right_line != null) {
+                        if (left_line != null && right_line != null) {
+                            left_line[0] += cv_left;
+                            left_line[2] += cv_left;
+                            left_line[1] += cv_top;
+                            left_line[3] += cv_top;
+                            right_line[0] += cv_left;
+                            right_line[2] += cv_left;
+                            right_line[1] += cv_top;
+                            right_line[3] += cv_top;
+                            left_line[0] /= (double) width;
+                            left_line[2] /= (double) width;
+                            left_line[1] /= (double) height;
+                            left_line[3] /= (double) height;
+                            right_line[0] /= (double) width;
+                            right_line[2] /= (double) width;
+                            right_line[1] /= (double) height;
+                            right_line[3] /= (double) height;
                             float[] transformed_cv_left = OCD.transformRatioToScreen((float) left_line[1], (float) left_line[3], (float) left_line[0], (float) left_line[2], realWidth, screenWidth, screenHeight);
                             float[] transformed_cv_right = OCD.transformRatioToScreen((float) right_line[1], (float) right_line[3], (float) right_line[0], (float) right_line[2], realWidth, screenWidth, screenHeight);
                             object_widths[i] = AR.findMinDistBetweenLines(new float[]{transformed_cv_left[2], transformed_cv_left[0]}, new float[]{transformed_cv_right[2], transformed_cv_right[0]}, new float[]{transformed_cv_left[3], transformed_cv_left[1]}, new float[]{transformed_cv_right[3], transformed_cv_right[1]}, frame);
+                            Line leftDraw = new Line(transformed_cv_left[2], transformed_cv_left[0], transformed_cv_left[3], transformed_cv_left[1]);
+                            Line rightDraw = new Line(transformed_cv_right[2], transformed_cv_right[0], transformed_cv_right[3], transformed_cv_right[1]);
+                            cvView.drawLine(leftDraw);
+                            cvView.drawLine(rightDraw);
+                            cvView.invalidate();
                         }
+
                         // somekind of show: width of lable is object_widths[i]
                         // somekind of show: distance of lable from phone is center_of_objects[i]
                     }
@@ -418,8 +478,11 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     if (!message.equals("")) {
                         textView.setText(message);
                     }
-                    image.close();
                 } catch (Throwable ignored) {
+                    int a = 1;
+                }
+                if(image != null){
+                    image.close();
                 }
             }
             //#############################################
