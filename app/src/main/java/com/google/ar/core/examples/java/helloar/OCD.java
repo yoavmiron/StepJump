@@ -249,8 +249,10 @@ public class OCD {
         top *= (float) screenHeight;
         bottom *= (float) screenHeight;
         int deltaW = realWidth - screenWidth;
-        left *= (float) realWidth - deltaW / 2;
-        right *= (float) realWidth - deltaW / 2;
+        left *= (float) realWidth;
+        left -= deltaW / 2;
+        right *= (float) realWidth;
+        right -= deltaW / 2;
         top = top > screenHeight - 1 ? screenHeight - 1 : top;
         top = top < 0 ? 0 : top;
         bottom = bottom > screenHeight - 1 ? screenHeight - 1 : bottom;

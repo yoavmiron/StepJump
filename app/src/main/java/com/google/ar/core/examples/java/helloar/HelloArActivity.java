@@ -105,7 +105,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private final PointCloudRenderer pointCloudRenderer = new PointCloudRenderer();
     private OCD ocd;
     private long counter = 0;
-    private int door_counter = -1;
+    private int door_counter = 0;
     private float[] door_widths;
     private final int avg_times = 5;
 
@@ -400,23 +400,21 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         float[] pixel2 = {transformed_pixels[3], transformed_pixels[1]};
                         float[] leftUp = {transformed_pixels[2], transformed_pixels[0]};
                         float[] rightDown = {transformed_pixels[3], transformed_pixels[1]};
-                        float[] leftDown = {transformed_pixels[2], transformed_pixels[0]};
-                        float[] rightUp = {transformed_pixels[3], transformed_pixels[1]};
+                        float[] leftDown = {transformed_pixels[2], transformed_pixels[1]};
+                        float[] rightUp = {transformed_pixels[3], transformed_pixels[0]};
                         ourView.setRect(transformed_pixels[2], transformed_pixels[0], transformed_pixels[3], transformed_pixels[1]);
                         ourView.invalidate();
                         float[] centerPixel = {(transformed_pixels[2] + transformed_pixels[3]) / 2.0f, (transformed_pixels[0] + transformed_pixels[1]) / 2.0f};
-                        object_widths[i] = AR.pixelsToDistance(pixel1, pixel2, frame);
                         center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
-
-
-                        object_widths[i] = AR.findMinDistBetweenLines(leftUp, rightUp, leftDown, rightDown, frame);
                         // transform from 300x300 to 640x480
-                        float cv_top = recognitions.get(i).location.top * (float) height * 0.9f;
-                        float cv_bottom = recognitions.get(i).location.bottom * (float) height * 1.1f;
-                        cv_bottom = cv_bottom > height - 1 ? height - 1 : cv_bottom;
-                        float cv_left = recognitions.get(i).location.left * (float) width * 0.9f;
-                        float cv_right = recognitions.get(i).location.right * (float) width * 1.1f;
-                        cv_right = cv_right > width - 1 ? width - 1 : cv_right;
+                        float cv_top = recognitions.get(i).location.top * (float) width * 0.95f;
+                        float cv_bottom = recognitions.get(i).location.bottom * (float) width * 1.05f;
+                        cv_bottom = cv_bottom > width - 1 ? width - 1 : cv_bottom;
+                        cv_top = cv_top < 0 ? 0 : cv_top;
+                        float cv_left = recognitions.get(i).location.left * (float) height * 0.95f;
+                        float cv_right = recognitions.get(i).location.right * (float) height * 1.05f;
+                        cv_right = cv_right > height - 1 ? height - 1 : cv_right;
+                        cv_left = cv_left < 0 ? 0 : cv_left;
                         int orientation = getScreenOrientation();
                         double[][] lines = ocd.imageProcess(image, cv_top, cv_bottom, cv_left, cv_right, orientation);
                         double[] left_line = lines[0];
@@ -430,19 +428,20 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                             right_line[2] += cv_left;
                             right_line[1] += cv_top;
                             right_line[3] += cv_top;
-                            left_line[0] /= (double) width;
-                            left_line[2] /= (double) width;
-                            left_line[1] /= (double) height;
-                            left_line[3] /= (double) height;
-                            right_line[0] /= (double) width;
-                            right_line[2] /= (double) width;
-                            right_line[1] /= (double) height;
-                            right_line[3] /= (double) height;
+                            left_line[0] /= (double) height;
+                            left_line[2] /= (double) height;
+                            left_line[1] /= (double) width;
+                            left_line[3] /= (double) width;
+                            right_line[0] /= (double) height;
+                            right_line[2] /= (double) height;
+                            right_line[1] /= (double) width;
+                            right_line[3] /= (double) width;
                             float[] transformed_cv_left = OCD.transformRatioToScreen((float) left_line[1], (float) left_line[3], (float) left_line[0], (float) left_line[2], realWidth, screenWidth, screenHeight);
                             float[] transformed_cv_right = OCD.transformRatioToScreen((float) right_line[1], (float) right_line[3], (float) right_line[0], (float) right_line[2], realWidth, screenWidth, screenHeight);
                             object_widths[i] = AR.findMinDistBetweenLines(new float[]{transformed_cv_left[2], transformed_cv_left[0]}, new float[]{transformed_cv_right[2], transformed_cv_right[0]}, new float[]{transformed_cv_left[3], transformed_cv_left[1]}, new float[]{transformed_cv_right[3], transformed_cv_right[1]}, frame);
                             Line leftDraw = new Line(transformed_cv_left[2], transformed_cv_left[0], transformed_cv_left[3], transformed_cv_left[1]);
                             Line rightDraw = new Line(transformed_cv_right[2], transformed_cv_right[0], transformed_cv_right[3], transformed_cv_right[1]);
+                            cvView.cleanUp();
                             cvView.drawLine(leftDraw);
                             cvView.drawLine(rightDraw);
                             cvView.invalidate();
@@ -460,6 +459,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                             door_widths[door_counter] = object_widths[0];
                             door_counter++;
                         } else {
+                            door_widths[door_counter % avg_times] = object_widths[0];
+                            door_counter++;
                             float avg_width = 0.0f;
                             for (int k = 0; k < avg_times; k++) {
                                 avg_width += door_widths[k];
@@ -481,7 +482,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                 } catch (Throwable ignored) {
                     int a = 1;
                 }
-                if(image != null){
+                if (image != null) {
                     image.close();
                 }
             }

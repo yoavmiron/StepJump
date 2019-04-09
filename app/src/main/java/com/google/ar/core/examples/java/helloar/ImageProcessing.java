@@ -99,6 +99,8 @@ class ImageProcessing {
         linesFilter linesFilter = new linesFilter();
         double[][] linesPoints = linesFilter.LinesFilter(greyImg, lines);
         for (int i = 0; i < linesPoints.length; i++) {
+            if(linesPoints[i] == null)
+                continue;
             if(linesPoints[i][1]  > linesPoints[i][3]){
                 double temp = linesPoints[i][1];
                 linesPoints[i][1] = linesPoints[i][3];
