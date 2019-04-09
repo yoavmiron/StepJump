@@ -359,9 +359,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     }
 
                     // important
-                    int height = image.getHeight();
-                    int width = image.getWidth();
-                    realWidth = screenHeight * height / width;
+                    int width = image.getHeight();
+                    int height = image.getWidth();
+                    realWidth = screenHeight * width / height;
                     ArrayList<OCD.Recognition> recognitions = ocd.detect(image);
 
 
@@ -407,9 +407,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         float[] centerPixel = {(transformed_pixels[2] + transformed_pixels[3]) / 2.0f, (transformed_pixels[0] + transformed_pixels[1]) / 2.0f};
                         center_of_objects[i] = AR.pixelToDistance(centerPixel, frame);
                         // transform from 300x300 to 640x480
-                        float cv_top = recognitions.get(i).location.top * (float) width * 0.95f;
-                        float cv_bottom = recognitions.get(i).location.bottom * (float) width * 1.05f;
-                        cv_bottom = cv_bottom > width - 1 ? width - 1 : cv_bottom;
+                        float cv_top = recognitions.get(i).location.top * (float) height * 0.95f;
+                        float cv_bottom = recognitions.get(i).location.bottom * (float) height * 1.05f;
+                        cv_bottom = cv_bottom > height - 1 ? height - 1 : cv_bottom;
                         cv_top = cv_top < 0 ? 0 : cv_top;
                         float cv_left = recognitions.get(i).location.left * (float) height * 0.95f;
                         float cv_right = recognitions.get(i).location.right * (float) height * 1.05f;
@@ -428,14 +428,14 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                             right_line[2] += cv_left;
                             right_line[1] += cv_top;
                             right_line[3] += cv_top;
-                            left_line[0] /= (double) height;
-                            left_line[2] /= (double) height;
-                            left_line[1] /= (double) width;
-                            left_line[3] /= (double) width;
-                            right_line[0] /= (double) height;
-                            right_line[2] /= (double) height;
-                            right_line[1] /= (double) width;
-                            right_line[3] /= (double) width;
+                            left_line[0] /= (double) width;
+                            left_line[2] /= (double) width;
+                            left_line[1] /= (double) height;
+                            left_line[3] /= (double) height;
+                            right_line[0] /= (double) width;
+                            right_line[2] /= (double) width;
+                            right_line[1] /= (double) height;
+                            right_line[3] /= (double) height;
                             float[] transformed_cv_left = OCD.transformRatioToScreen((float) left_line[1], (float) left_line[3], (float) left_line[0], (float) left_line[2], realWidth, screenWidth, screenHeight);
                             float[] transformed_cv_right = OCD.transformRatioToScreen((float) right_line[1], (float) right_line[3], (float) right_line[0], (float) right_line[2], realWidth, screenWidth, screenHeight);
                             object_widths[i] = AR.findMinDistBetweenLines(new float[]{transformed_cv_left[2], transformed_cv_left[0]}, new float[]{transformed_cv_right[2], transformed_cv_right[0]}, new float[]{transformed_cv_left[3], transformed_cv_left[1]}, new float[]{transformed_cv_right[3], transformed_cv_right[1]}, frame);
@@ -475,6 +475,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         message += recognitions.get(0).label;
                     } else if (object_widths.length == 0) {
                         door_counter = 0;
+                        cvView.cleanUp();
                     }
                     if (!message.equals("")) {
                         textView.setText(message);
