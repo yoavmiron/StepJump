@@ -364,4 +364,274 @@ public class AR {
         f.rewind();
         return points;
     }
+
+    /**
+     * @param floor
+     * @param points all point found in frame
+     * @return list of all possible points for floor extension
+     */
+    public static ArrayList<float[]> findExtensionPoints(Plane floor, float[] points) {
+        final float certaintyThreshold = 0.10f; // was 0.15
+        final float heightVariance = 0.05f;
+
+        ArrayList<float[]> retList = new ArrayList<>();
+
+        float floorHeight = floor.getCenterPose().ty();
+
+        for (int i = 0; i < points.length; i += 4) {
+            if (points[i + 3] < certaintyThreshold) {
+                continue;
+            }
+            if (Math.abs(points[i + 1] - floorHeight) > heightVariance) {
+                continue;
+            }
+            float[] point = new float[]{points[i], points[i + 1], points[i + 2]};
+            Pose p = new Pose(point, new float[4]);
+            if (!floor.isPoseInPolygon(p)){
+                retList.add(point);
+            }
+        }
+        return retList;
+    }
+
+    public static float[][] polygon_to_xz(float[] points) {
+        float[] xes = new float[points.length / 2];
+        float[] zes = new float[points.length / 2];
+        for (int i = 0; i < points.length; i += 2) {
+            xes[i / 2] = points[i];
+            zes[i / 2] = points[i + 1];
+        }
+        float[][] xz = new float[2][];
+        xz[0] = xes;
+        xz[1] = zes;
+        return xz;
+    }
+
+    /**
+     * @param floorPolygon    the polygon describing the floor in 2D
+     * @param extensionPoints points to add to the polygon as vertices
+     * @return the new polygon with (hopefully) optimal addition of points
+     */
+    public static float[] extendFloor(float[] floorPolygon, ArrayList<float[]> extensionPoints, float x_extent, float z_extent) {
+
+        /*
+        float[][] xz = polygon_to_xz(floorPolygon);
+        float[] x = xz[0];
+        float[] z = xz[1];
+        */
+
+        float[][] ret = polygon_to_xz(floorPolygon);
+
+        for (float[] point : extensionPoints) {
+            ret = extendSinglePoint(ret, point[0], point[1], doubleArrayToSingle(ret),x_extent,z_extent);
+        }
+
+        float[] retAsSingleArray = doubleArrayToSingle(ret);
+        return retAsSingleArray;
+    }
+
+    /**
+     * @param polygon array of the polygon's vertices (polygon[0] contains x values, polygon[1]
+     *                contains z values)
+     * @param x0      x coordinate of added point
+     * @param z0      z coordinate of added point
+     * @param xzForm  the same polygon in format [x1, z1, x2, z2,...]
+     * @return the input polygon with the new point added, as a 2D array
+     */
+    private static float[][] extendSinglePoint(float[][] polygon, float x0, float z0,
+                                               float[] xzForm, float x_extent, float z_extent) {
+
+        float[] x = polygon[0];
+        float[] z = polygon[1];
+        int oldLen = x.length;
+        if(Math.abs(x0) > x_extent/2 + 1f || Math.abs(z0) > z_extent/2 + 1f){
+            return polygon;
+        }
+
+        for (int i = 0; i < oldLen; i++) { // check if new point is already a vertex
+            if (x[i] == x0 && z[i] == z0) {
+                return polygon;
+            }
+        }
+
+
+        ArrayList<Integer> replaceFroms = new ArrayList<>();
+        ArrayList<Integer> replaceTos = new ArrayList<>();
+
+
+        /* loop over existing vertices: check whether the connecting line between the vertex and
+         * (x0, y0) intersects the polygon and set replaceFrom, replaceTo accordingly */
+        boolean didPreviousIntersect;
+        boolean doesCurrentIntersect = doesConnectingLineIntersectPolygon(x0, z0, x[oldLen - 1],
+                z[oldLen - 1], xzForm);
+        for (int i = 0; i < oldLen; i++) {
+            didPreviousIntersect = doesCurrentIntersect;
+            doesCurrentIntersect = doesConnectingLineIntersectPolygon(x0, z0, x[i], z[i], xzForm);
+
+            if (doesCurrentIntersect && (!didPreviousIntersect)) {
+                int temp = i - 1;
+                temp += (temp >= 0) ? 0 : oldLen;
+                replaceTos.add(temp);
+            } else if ((!doesCurrentIntersect) && didPreviousIntersect) {
+                int temp = i + 1;
+                temp -= (temp < oldLen) ? 0 : oldLen;
+                replaceFroms.add(temp);
+            }
+        }
+
+        int max = 0;
+        int replaceFrom = 0; // indices  of vertices to be replaced by the new point (in Pythonian:
+        int replaceTo = 0; // polygon[replaceFrom : replaceTo] = [(x0, z0)])
+        for (int fIndex : replaceFroms) {
+            for (int tIndex : replaceTos) {
+                int current;
+                if (fIndex < tIndex) {
+                    current = tIndex - fIndex;
+                } else if (fIndex > tIndex) {
+                    current = oldLen - fIndex + tIndex;
+                } else {
+                    current = 0;
+                }
+                if (current > max) {
+                    replaceFrom = fIndex;
+                    replaceTo = tIndex;
+                    max = current;
+                }
+            }
+        }
+
+        /* replace relevant vertices */
+        float[][] ret = new float[2][];
+
+        if (replaceFrom < replaceTo) {
+            int newLen = oldLen - (replaceTo - replaceFrom) + 1;
+            if (newLen <= oldLen / 2) {
+                return polygon;
+            }
+            ret[0] = new float[newLen];
+            ret[1] = new float[newLen];
+            for (int i = 0; i < replaceFrom; i++) {
+                ret[0][i] = x[i];
+                ret[1][i] = z[i];
+            }
+            ret[0][replaceFrom] = x0;
+            ret[1][replaceFrom] = z0;
+            for (int i = replaceTo, j = replaceFrom + 1; i < oldLen; i++, j++) {
+                ret[0][j] = x[i];
+                ret[1][j] = z[i];
+            }
+
+        } else if (replaceTo < replaceFrom) {
+            int newLen = replaceFrom - replaceTo + 1;
+            if (newLen <= oldLen / 2) {
+                return polygon;
+            }
+            ret[0] = new float[newLen];
+            ret[1] = new float[newLen];
+            for (int i = replaceTo, j = 0; i < replaceFrom; i++, j++) {
+                ret[0][j] = x[i];
+                ret[1][j] = z[i];
+            }
+            ret[0][replaceFrom - replaceTo] = x0;
+            ret[1][replaceFrom - replaceTo] = z0;
+        } else {
+
+            int newLen = oldLen + 1;
+            ret[0] = new float[newLen];
+            ret[1] = new float[newLen];
+            for (int i = 0; i < replaceFrom; i++) {
+                ret[0][i] = x[i];
+                ret[1][i] = z[i];
+            }
+            ret[0][replaceFrom] = x0;
+            ret[1][replaceFrom] = z0;
+            for (int i = replaceFrom; i < oldLen; i++) {
+                ret[0][i + 1] = x[i];
+                ret[1][i + 1] = z[i];
+            }
+        }
+
+
+        return ret;
+    }
+
+    /**
+     * @param x0      x coordinate of point outside the polygon
+     * @param z0      z coordinate of point outside the polygon
+     * @param xi      x coordinate of a polygon's vertex
+     * @param zi      z coordinate of a polygon's vertex
+     * @param polygon the polygon (in format [x1, z1, x2, z2,...])
+     * @return true iff the line connecting (x0, z0) and (xi, zi) intersects the polygon
+     */
+    private static boolean doesConnectingLineIntersectPolygon(float x0, float z0, float xi, float zi,
+                                                              float[] polygon) {
+
+        TwoDLine l = TwoDLine.Create_From_Two_Points(x0, z0, xi, zi);
+        float vertexDist = TwoDLine.Distance_Between_Points(x0, z0, xi, zi);
+
+        ArrayList<TwoDLine> intersectionSides = l.find_all_lines(polygon);
+        for (TwoDLine side : intersectionSides) {
+            float[] intersection = l.Find_InterSection(side);
+            float dist = TwoDLine.Distance_Between_Points(x0, z0,
+                    intersection[0], intersection[1]);
+            if (dist < vertexDist) {
+                return true;
+            }
+
+        }
+
+        return false;
+    }
+
+    public static Pose project_pose_to_plane(Plane plane, Pose pose) {
+        float[] pose_translation = pose.getTranslation();
+        float xPose = pose_translation[0];
+        float yPose = pose_translation[1];
+        float zPose = pose_translation[2];
+        Pose centerPose = plane.getCenterPose();
+        float[] centerPose_translation = centerPose.getTranslation();
+        float xCP = centerPose_translation[0];
+        float yCP = centerPose_translation[1];
+        float zCP = centerPose_translation[2];
+        float[] norm = centerPose.getRotationQuaternion();
+        float a = norm[0];
+        float b = norm[1];
+        float c = norm[2];
+        float vector_length = (a * (xCP - xPose) + b * (yCP - yPose) + c * (zCP - zPose)) / (a * a + b * b + c * c);
+        float[] target_translation = new float[3];
+        target_translation[0] = xPose;// + vector_length * a;
+        target_translation[1] = yCP;//yPose + vector_length * b;
+        target_translation[2] = zPose;// + vector_length * c;
+        return new Pose(target_translation, pose.getRotationQuaternion());
+
+        /**
+         *  projects a pose on to a given plane
+         *
+         * @param plane a Plane
+         * @param pose A pose
+         * @return A Pose object which is the projection of the pose on the Plane (along the
+         * Plane's norma)
+         */
+    }
+
+    private static float[] doubleArrayToSingle(float[][] xzSeparated) {
+        float[] retInXZForm = new float[2 * xzSeparated[0].length];
+        for (int i = 0; i < xzSeparated[0].length; i++) {
+            retInXZForm[2 * i] = xzSeparated[0][i];
+            retInXZForm[2 * i + 1] = xzSeparated[1][i];
+        }
+
+        return retInXZForm;
+    }
+
+    public static float[] Convert_Point_From_Reality_to_Plane_Given_Angle(Pose point, Plane plane) {
+        float[] XAxis = plane.getCenterPose().getXAxis();
+        float[] ZAxis = plane.getCenterPose().getZAxis();
+        float xp = point.tx() * XAxis[0] + point.tz() * XAxis[2];
+        float zp = point.tx() * ZAxis[0] + point.tz() * ZAxis[2];
+        /*float angle = (float) (Math.atan2(plane.getCenterPose().getXAxis()[2],plane.getCenterPose().getXAxis()[0]));
+        float xp = (float) (point.tx() * Math.cos(angle) - point.tz() * Math.sin(angle)) - plane.getCenterPose().getTranslation()[0];
+        float zp = (float) (-point.tx() * Math.sin(angle) - point.tz() * (Math.cos(angle))) - plane.getCenterPose().getTranslation()[2];*/
+        return new float[]{xp, zp};
+    }
 }

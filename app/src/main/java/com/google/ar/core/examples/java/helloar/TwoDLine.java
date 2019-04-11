@@ -1,6 +1,11 @@
 package com.google.ar.core.examples.java.helloar;
 
+import com.google.ar.core.Plane;
+import com.google.ar.core.PointCloud;
+
 import java.lang.Math;
+import java.nio.FloatBuffer;
+import java.util.ArrayList;
 
 public class TwoDLine {
     private float a, b, c;
@@ -140,5 +145,118 @@ public class TwoDLine {
         lines2[0] = line1;
         lines2[1] = line2;
         return lines2;
+    }
+
+    public ArrayList<TwoDLine> find_all_lines(float[] points) {
+/*
+Finds all lines connecting the two pairs of points closest to this line from both sides
+*/
+        float[] xes = new float[points.length / 2];
+        float[] zes = new float[points.length / 2];
+        for (int i = 0; i < points.length; i += 2) {
+            xes[i / 2] = points[i];
+            zes[i / 2] = points[i + 1];
+        }
+        float distance_from_line = 0, pre_distance_from_line = 0;
+        ArrayList<TwoDLine> lines = new ArrayList<>();
+        int n = xes.length;
+        distance_from_line = this.b * xes[n - 1] + this.a * zes[n - 1] + this.c;
+        for (int i = 0; i < Math.max(xes.length, zes.length); i++) {
+            pre_distance_from_line = distance_from_line;
+            distance_from_line = this.b * xes[i] + this.a * zes[i] + this.c;
+            if ((double) pre_distance_from_line * distance_from_line <= 0) {
+                lines.add(Create_From_Two_Points(xes[i == 0 ? n - 1 : i - 1],zes[i == 0 ? n - 1 : i - 1],xes[i],zes[i]));
+            }
+        }
+        return lines;
+    }
+
+
+    public static float Distance_Between_Points(float x1, float z1, float x2, float z2) {
+        return (float) Math.sqrt((x1 - x2) * (x1 - x2) + (z1 - z2) * (z1 - z2));
+    }
+
+
+    public static float[] convert_floatbuffer_to_array(FloatBuffer buf) {
+        int size = buf.remaining();
+        float[] arr = new float[size];
+        for (int i = 0; i < size; i++)
+            arr[i] = buf.get(i);
+        return arr;
+    }
+
+    public static float[] filter_plane_points(PointCloud cloud, float plane_y) {
+        float[] cloudPoints = convert_floatbuffer_to_array(cloud.getPoints());
+        float[] points_on_plane = new float[cloudPoints.length];
+        int index = 0;
+        for (int i = 0; i < cloudPoints.length; i += 4) {
+            float dy = cloudPoints[i + 1] - plane_y;
+            if (dy <= 0.2 && dy >= -0.2) {
+                points_on_plane[index] = cloudPoints[i];//x
+                points_on_plane[index + 1] = cloudPoints[i + 2];//z
+                index += 2;
+            }
+        }
+        float[] filtered = new float[index];
+        for (int i = 0; i < index; i++) {
+            filtered[i] = points_on_plane[i];
+        }
+        return filtered;
+    }
+
+    public static float[] find_point_with_max_distance(float x_center_pose, float z_center_pose, float[] points) {
+//points - array of [x1,z1,x2,z2...]
+        float max_distance = 0;
+        float disance;
+        float[] max_dist_point = new float[2];
+        for (int i = 2; i < points.length; i += 2) {
+            disance = TwoDLine.Distance_Between_Points(x_center_pose, z_center_pose, points[i], points[i + 1]);
+            if (disance > max_distance) {
+                max_dist_point[0] = points[i];//x
+                max_dist_point[1] = points[i + 1];//z
+                max_distance = disance;
+            }
+        }
+        return max_dist_point;
+    }
+
+    public static float Get_Rotation_Angle(float x_center_pose, float z_center_pose, float x_p, float z_p, Plane plane) {
+        float x_r = x_p - x_center_pose;
+        float z_r = z_p - z_center_pose;
+        float[] farrest_from_polygon = TwoDLine.find_point_with_max_distance(0, 0, plane.getPolygon().array());
+        float xp = farrest_from_polygon[0];
+        float zp = farrest_from_polygon[1];
+        return (float) Math.asin((z_p - z_r * x_p / x_r) / (x_r + z_r * z_r / x_r));
+    }
+
+    public static float[] convert_point_to_coord(float x, float z, float angle_degrees) {
+        float angle_radians = angle_degrees * ((float) Math.PI) / 180;
+        float cos = ((float) Math.cos((double) angle_radians));
+        float sin = ((float) Math.sin((double) angle_radians));
+        float new_x = x * cos + z * sin;
+        float new_z = -x * sin + z * cos;
+        return new float[]{new_x, new_z};
+    }
+
+    public static float[] convert_point_to_coord(float x, float z, TwoDLine new_x_axis) {
+        float angle = (float) Math.atan((double) (-new_x_axis.b / new_x_axis.a));
+        angle = angle * 180 / ((float) Math.PI);
+        return convert_point_to_coord(x, z, angle);
+    }
+
+    public static float[] convert_points_to_coord(float[] prev_coords, float angle_degrees) {
+        float[] new_coords = new float[prev_coords.length];
+        for (int i = 0; i < prev_coords.length; i += 2) {
+            float[] new_coord_point = convert_point_to_coord(prev_coords[i], prev_coords[i + 1], angle_degrees);
+            new_coords[i] = new_coord_point[0];
+            new_coords[i + 1] = new_coord_point[1];
+        }
+        return new_coords;
+    }
+
+    public static float[] convert_points_to_coord(float[] prev_coords, TwoDLine new_x_axis) {
+        float angle = (float) Math.atan((double) (-new_x_axis.b / new_x_axis.a));
+        angle = angle * 180 / ((float) Math.PI);
+        return convert_points_to_coord(prev_coords, angle);
     }
 }

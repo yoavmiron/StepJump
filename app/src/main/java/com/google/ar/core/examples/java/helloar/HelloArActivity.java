@@ -37,6 +37,7 @@ import com.google.ar.core.Plane;
 import com.google.ar.core.Point;
 import com.google.ar.core.Point.OrientationMode;
 import com.google.ar.core.PointCloud;
+import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
@@ -65,6 +66,7 @@ import org.opencv.core.Mat;
 
 import java.io.IOException;
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 
 import javax.microedition.khronos.egl.EGLConfig;
@@ -334,6 +336,38 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             Camera camera = frame.getCamera();
             counter++;
             String message = " ";
+            //#############################################
+
+
+            // Handle one tap per frame.
+            handleTap(frame, camera);
+
+            // Draw background.
+            backgroundRenderer.draw(frame);
+
+            // If not tracking, don't draw 3d objects.
+            if (camera.getTrackingState() == TrackingState.PAUSED) {
+                return;
+            }
+
+            // Get projection matrix.
+            float[] projmtx = new float[16];
+            camera.getProjectionMatrix(projmtx, 0, 0.1f, 100.0f);
+
+            // Get camera matrix and draw.
+            float[] viewmtx = new float[16];
+            camera.getViewMatrix(viewmtx, 0);
+
+            // Compute lighting from average intensity of the image.
+            // The first three components are color scaling factors.
+            // The last one is the average pixel intensity in gamma space.
+            final float[] colorCorrectionRgba = new float[4];
+            frame.getLightEstimate().getColorCorrection(colorCorrectionRgba, 0);
+
+            // Visualize tracked points.
+            PointCloud pointCloud = frame.acquirePointCloud();
+            pointCloudRenderer.update(pointCloud);
+            pointCloudRenderer.draw(viewmtx, projmtx);
             if (counter % 20 == 0) {
                 Image image = null;
                 try {
@@ -376,7 +410,20 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     // important
                     float floorWidth = -1.0f;
                     if (floor != null) {
-                        floorWidth = AR.find_width(floor);
+                        FloatBuffer ptsBuffer = pointCloud.getPoints();
+                        float[] allFramePoints = AR.bufferToArray(ptsBuffer);
+
+                        ArrayList<float[]> ptsLst3D = AR.findExtensionPoints(floor, allFramePoints);
+                        ArrayList<float[]> ptsLst2D = new ArrayList<>();
+                        for (float[] point3D : ptsLst3D) {
+                            Pose pTemp = new Pose(point3D, new float[4]);
+                            pTemp = AR.project_pose_to_plane(floor, pTemp);
+                            ptsLst2D.add(AR.Convert_Point_From_Reality_to_Plane_Given_Angle(pTemp, floor));
+                        }
+                        float[] floor2D = floor.getPolygon().array();
+                        float[] floor2 = AR.extendFloor(floor2D, ptsLst2D, floor.getExtentX(), floor.getExtentZ());
+
+                        floorWidth = AR.find_width(floor); // update to new find_width with cut objects
                         if (floorWidth < 10) {
                             message += "Floor width ";
                             message += floorWidth;
@@ -487,39 +534,6 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     image.close();
                 }
             }
-            //#############################################
-
-
-            // Handle one tap per frame.
-            handleTap(frame, camera);
-
-            // Draw background.
-            backgroundRenderer.draw(frame);
-
-            // If not tracking, don't draw 3d objects.
-            if (camera.getTrackingState() == TrackingState.PAUSED) {
-                return;
-            }
-
-            // Get projection matrix.
-            float[] projmtx = new float[16];
-            camera.getProjectionMatrix(projmtx, 0, 0.1f, 100.0f);
-
-            // Get camera matrix and draw.
-            float[] viewmtx = new float[16];
-            camera.getViewMatrix(viewmtx, 0);
-
-            // Compute lighting from average intensity of the image.
-            // The first three components are color scaling factors.
-            // The last one is the average pixel intensity in gamma space.
-            final float[] colorCorrectionRgba = new float[4];
-            frame.getLightEstimate().getColorCorrection(colorCorrectionRgba, 0);
-
-            // Visualize tracked points.
-            PointCloud pointCloud = frame.acquirePointCloud();
-            pointCloudRenderer.update(pointCloud);
-            pointCloudRenderer.draw(viewmtx, projmtx);
-
 
             // Application is responsible for releasing the point cloud resources after
             // using it.
