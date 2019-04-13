@@ -320,13 +320,17 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             FloatBuffer buffer = pointCloud.getPoints();
             float[] floatBuffer = bufferToArray(buffer);
             ArrayList<ArrayList<float[]>> objects = getObjects(floatBuffer, floor);
-            if (floor != null)
-                System.out.println(convertObjectsToPlane(floor,objects, pointCloud));
+            float meter;
+            float b;
+            if (floor != null){
+                //meter = meter_ahead(floor, floor.getPolygon().array(), four_points_of_all_objects(floor,objects), frame.acquirePointCloud(),frame.getCamera());
+                b = 5;}
             pointCloudRenderer.update(pointCloud);
             pointCloudRenderer.draw(viewmtx, projmtx);
 
             // Application is responsible for releasing the point cloud resources after
             // using it.
+
             pointCloud.release();
 
             // Check if we detected at least one plane. If so, hide the loading message.
@@ -474,7 +478,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         // Compute the straight-line distance.
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
-    
+
     /**
      * computes the distance between to poses
      *
@@ -566,17 +570,24 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
     private float findFinalDistance(float[] polygon, float[][] objectsInside, TwoDLine xAxis){
         float [] newPolygon = TwoDLine.convert_points_to_coord(polygon, xAxis);
-        return findFinalDistance(newPolygon, objectsInside, 'Z', true);
+        return findFinalDistance(newPolygon, objectsInside, 'X', true, xAxis);
     }
 
 
-    private float findFinalDistance(float[] polygon, float[][] objectsInside, char axis, boolean meter)
+    private float findFinalDistance(float[] polygon, float[][] objectsInside, char axis, boolean meter, TwoDLine meterAxis)
     //each object is sorted as [minX, minZ, maxX, maxZ] in the float-arrays array
     {
         //parameters for the resolution
         double EDGE_FACTOR = 0.5; //which distance from edges we stop checking
-        if (meter)
+        if (meter) {
             EDGE_FACTOR = 0;
+            if (meterAxis.getA() == 0)
+                axis = 'X';
+            else if (-meterAxis.getB()/meterAxis.getA() > 1 || -meterAxis.getB()/meterAxis.getA() < -1)
+                axis = 'X';
+            else
+                axis = 'Z';
+        }
         double STEP_FACTOR = 0.1; //the stepsize we go in each axis
         int MAX_POINTS = objectsInside.length; // the maximum amount of objects we estimate to be in one axis
         float maxX = 0, minX = 0, maxZ = 0, minZ = 0;
@@ -878,7 +889,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
         }
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
         ArrayList<Integer> checked_indexes = new ArrayList<>();
-        float distanceThreshold = 0.3f;
+        float distanceThreshold = 0.5f;
         int object_index = -1;
         int point_index = -1;
         int next_point = 0;
@@ -992,9 +1003,10 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     public static float[] Convert_Point_From_Reality_to_Plane_Given_Angle(Pose point, Plane plane) {
 /*
 Main!!!
- */     float angle = (float)(Math.acos(plane.getCenterPose().getXAxis()[0]));
-        float xp = (float) (point.tx() * Math.cos(angle) - point.tz() * Math.sin(angle)) - plane.getCenterPose().getTranslation()[0];
-        float zp = (float) (-point.tx() * Math.sin(angle) - point.tz() * (Math.cos(angle))) - plane.getCenterPose().getTranslation()[2];
+ */     float[] XAxis = plane.getCenterPose().getXAxis();
+        float[] ZAxis = plane.getCenterPose().getZAxis();
+        float xp = point.tx() * XAxis[0] + point.tz() * XAxis[2];
+        float zp = point.tx() * ZAxis[0] + point.tz() * ZAxis[2];
         return new float[]{xp, zp};
     }
 
@@ -1006,10 +1018,10 @@ Main!!!
             return 0;
     }
 
-    private float[][] four_points_of_all_objects(Plane plane, ArrayList<ArrayList<float[]>> all_object_points, PointCloud cloud) {
+    private float[][] four_points_of_all_objects(Plane plane, ArrayList<ArrayList<float[]>> all_object_points) {
         float[][] arr = new float[all_object_points.size()][4];
         for (int i = 0; i < all_object_points.size(); i++) {
-            float[] obj_arr = four_points_of_object(plane, all_object_points.get(i), cloud);
+            float[] obj_arr = four_points_of_object(plane, all_object_points.get(i));
             int[] indices = new int[]{1, 2, 4, 5, 7, 8, 10, 11};
             float[] obj_a = new float[8];
             for (int j = 0; j < 8; j++)
@@ -1051,9 +1063,8 @@ Main!!!
     }
 
 
-    private float[] four_points_of_object(Plane plane, ArrayList<float[]> object_points,PointCloud cloud)
+    private float[] four_points_of_object(Plane plane, ArrayList<float[]> object_points)
     {
-        float angle = Find_Rotation_Between_Coordinates(plane,cloud);
         float[] min_z_p = new float[3], max_z_p=new float[3], min_x_p = new float[3], max_x_p = new float[3];
         for(float[] p: object_points)
         {
@@ -1255,7 +1266,7 @@ Main!!!
             }
             else
             {
-                float[] real_object = four_points_of_object(plane, object, cloud);
+                float[] real_object = four_points_of_object(plane, object);
                 float[] pointsIn = new float[2* (int)real_object[0]];
                 int inCounter = 0;
                 int outCounter = 0;
@@ -1309,7 +1320,7 @@ Main!!!
             }
             else
             {
-                float[] real_object = four_points_of_object(plane, object, cloud);
+                float[] real_object = four_points_of_object(plane, object);
                 float[] pointsIn = new float[2* (int)real_object[0]];
                 int inCounter = 0;
                 int outCounter = 0;
@@ -1332,22 +1343,22 @@ Main!!!
                 polygon = cut_plane_points_inside(polygon, pointsIn, pointsOut);
             }
         }
-        float Xdistance = findFinalDistance(polygon,objectsInside,'X', false);
-        float Zdistance = findFinalDistance(polygon, objectsInside, 'Z', false);
+        float Xdistance = findFinalDistance(polygon,objectsInside,'X', false, new TwoDLine(1,1,1));
+        float Zdistance = findFinalDistance(polygon, objectsInside, 'Z', false, new TwoDLine(1,1,1));
         return Math.min(Xdistance, Zdistance);
     }
 
     public float meter_ahead (Plane plane, float[] polygon, float[][] objectsInside, PointCloud pointCloud, Camera camera){
         Pose cameraPose = camera.getPose();
         Pose projected = project_pose_to_plane(plane, cameraPose);
-        float[] cameraPoseOnPlane = Convert_Point_From_Reality_to_Plane(plane, pointCloud, projected);
+        float[] cameraPoseOnPlane = Convert_Point_From_Reality_to_Plane_Given_Angle(projected,plane);
         float [] newTranslation = {cameraPose.getTranslation()[0], cameraPose.getTranslation()[1] + 1,
                 cameraPose.getTranslation()[2]};
         float [] newQuaternions = {cameraPose.getRotationQuaternion()[0], cameraPose.getRotationQuaternion()[1],
                 cameraPose.getRotationQuaternion()[2], cameraPose.getRotationQuaternion()[3]};
         Pose meterAhead = new Pose (newTranslation, newQuaternions);
         Pose meterProjected = project_pose_to_plane(plane, meterAhead);
-        float[] meterAheadOnPlane = Convert_Point_From_Reality_to_Plane(plane, pointCloud, meterProjected);
+        float[] meterAheadOnPlane = Convert_Point_From_Reality_to_Plane_Given_Angle(meterProjected, plane);
         TwoDLine connection = TwoDLine.Create_From_Two_Points(cameraPoseOnPlane[0], cameraPoseOnPlane[1],
                 meterAheadOnPlane[0], meterAheadOnPlane[1]);
         TwoDLine diagonaCamera = connection.Vertical(cameraPoseOnPlane[0], cameraPoseOnPlane[1]);
@@ -1355,6 +1366,7 @@ Main!!!
         int [] cutInexes = new int[4];
         boolean foundOneCamera = false;
         boolean foundOneMeter = false;
+        System.out.print("works");
         for (int i = 0; i < polygon.length - 2; i+=2){
             // Finding he indexes in which to cut the old polygon
             if (diagonaCamera.Distance_To_Point_Not_Abs(polygon[i], polygon[i+1])/
