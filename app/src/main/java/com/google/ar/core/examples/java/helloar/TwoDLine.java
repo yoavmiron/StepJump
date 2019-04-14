@@ -123,13 +123,18 @@ public class TwoDLine {
         float distance_from_line = 0, pre_distance_from_line = 0;
         float[][] edge_points = new float[4][2];
         int count = 0;
-        distance_from_line = this.b * xes[0] + this.a * zes[0] + this.c;
+        distance_from_line = this.b * xes[xes.length - 1] + this.a * zes[zes.length - 1] + this.c;
         for (int i = 0; i < xes.length; i++) {
             pre_distance_from_line = distance_from_line;
             distance_from_line = this.b * xes[i] + this.a * zes[i] + this.c;
             if (pre_distance_from_line * distance_from_line <= 0) {
-                edge_points[count][0] = xes[i - 1];
-                edge_points[count][1] = zes[i - 1];
+                if(i != 0) {
+                    edge_points[count][0] = xes[i - 1];
+                    edge_points[count][1] = zes[i - 1];
+                }else{
+                    edge_points[count][0] = xes[xes.length - 1];
+                    edge_points[count][1] = zes[zes.length - 1];
+                }
                 edge_points[count + 1][0] = xes[i];
                 edge_points[count + 1][1] = zes[i];
                 count += 2;

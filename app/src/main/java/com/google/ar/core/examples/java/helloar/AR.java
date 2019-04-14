@@ -269,11 +269,7 @@ public class AR {
      * @param floor plane to calculate it's width
      * @return width of plane if can calculate, 1000 otherwise
      */
-    static float find_width(Plane floor) {
-        return find_width(floor.getPolygon().array());
-    }
-
-    private static float find_width(float[] points) {
+    static float find_width(float[] points) {
         float[] xes = new float[points.length / 2];
         float[] zes = new float[points.length / 2];
         for (int i = 0; i < points.length; i += 2) {
@@ -646,11 +642,11 @@ public class AR {
         if (meter) {
             EDGE_FACTOR = 0;
             if (meterAxis.getA() == 0)
-                axis = 'X';
-            else if (-meterAxis.getB()/meterAxis.getA() > 1 || -meterAxis.getB()/meterAxis.getA() < -1)
-                axis = 'X';
-            else
                 axis = 'Z';
+            else if (-meterAxis.getB()/meterAxis.getA() > 1 || -meterAxis.getB()/meterAxis.getA() < -1)
+                axis = 'Z';
+            else
+                axis = 'X';
         }
         double STEP_FACTOR = 0.1; //the stepsize we go in each axis
         int MAX_POINTS = objectsInside.length; // the maximum amount of objects we estimate to be in one axis
@@ -686,6 +682,9 @@ public class AR {
             //the polygon
             float[] intersection1 = Axis.Find_InterSection(lines[0]);
             float[] intersection2 = Axis.Find_InterSection(lines[1]);
+            if(intersection1[2] != 1 || intersection2[2] != 1){
+                continue;
+            }
             float[] onDiameter = new float[MAX_POINTS * 4 + 4];//the array in which we put the points which are on our Axis
             int added_counter = 2; // counts how many coordinates we added (pointsX2)
             onDiameter[0] = intersection1[0];
@@ -1075,7 +1074,6 @@ public class AR {
         int [] cutInexes = new int[4];
         boolean foundOneCamera = false;
         boolean foundOneMeter = false;
-        System.out.print("works");
         for (int i = 0; i < polygon.length - 2; i+=2){
             // Finding he indexes in which to cut the old polygon
             if (diagonaCamera.Distance_To_Point_Not_Abs(polygon[i], polygon[i+1])/
@@ -1089,8 +1087,8 @@ public class AR {
                     cutInexes[1] = i;
             }
 
-            if (diagonaCamera.Distance_To_Point_Not_Abs(polygon[i], polygon[i+1])/
-                    diagonaCamera.Distance_To_Point_Not_Abs(polygon[i+2],polygon[i+3]) < 0){
+            else if (diagonalAhead.Distance_To_Point_Not_Abs(polygon[i], polygon[i+1])/
+                    diagonalAhead.Distance_To_Point_Not_Abs(polygon[i+2],polygon[i+3]) < 0){
                 // May need checking in which index to cut - didn't do it accuratly
                 if (!foundOneMeter) {
                     cutInexes[2] = i;
@@ -1102,64 +1100,59 @@ public class AR {
         }
         float[] newPolygon = new float [polygon.length];
         int newPolygonCounter = 0;
-        for (int i = 0; i < polygon.length ; i+= 2){
-            if (i == cutInexes[0]){
-                for (int j = i; j < polygon.length * 2; j += 2){
-                    j = j & polygon.length;
-                    if(j == cutInexes[1]) {
-                        newPolygon[newPolygonCounter] = cameraPoseOnPlane[0];
-                        newPolygon[newPolygonCounter] = cameraPoseOnPlane[1];
-                        newPolygonCounter += 2;
+                for (int j = 0; j < polygon.length * 2; j += 2){
+                    if(j % polygon.length == cutInexes[1]) {
+                        int tempJ = j;
                         int temp = polygon.length;
                         for (int k = j; k < polygon.length * 2; k++) {
-                            if (k == cutInexes[2] || k == cutInexes[3]) {
-                                while (k != cutInexes[3] && k != cutInexes[2]) {
-                                    newPolygon[newPolygonCounter] = polygon[k];
+                            if (k % polygon.length == cutInexes[2] || k % polygon.length == cutInexes[3]) { // found the other line
+                                while (tempJ % polygon.length != cutInexes[3] && tempJ % polygon.length != cutInexes[2]) {//add from one line to the other
+                                    newPolygon[newPolygonCounter] = polygon[tempJ % polygon.length];
                                     newPolygonCounter += 1;
+                                    tempJ++;
                                 }
                                 newPolygon[newPolygonCounter] = meterAheadOnPlane[0];
-                                newPolygon[newPolygonCounter] = meterAheadOnPlane[1];
+                                newPolygon[newPolygonCounter + 1] = meterAheadOnPlane[1];
                                 newPolygonCounter += 2;
                                 temp = k + 1;
-                                break;
-                            }
-                            temp = k + 1;
-                        }
-                        for (int f = temp; f < polygon.length * 2; f++) {
-                            if (f == cutInexes[2] || f == cutInexes[3])
-                                while (f != cutInexes[0]) {
-                                    newPolygon[newPolygonCounter] = polygon[f];
+                                while (temp % polygon.length != cutInexes[0]) {
+                                    newPolygon[newPolygonCounter] = polygon[temp % polygon.length];
                                     newPolygonCounter++;
-                                    f++;
+                                    temp++;
                                 }
-                        }
-                        break;
-                    }
-                    else
-                    if(j == cutInexes[2] || j == cutInexes[3]){
-                        for(int k = i; k < j + 2; k++){
-                            newPolygon[newPolygonCounter] = polygon[k];
-                            newPolygonCounter += 1;
-                        }
-                        newPolygon[newPolygonCounter] = meterAheadOnPlane[0];
-                        newPolygon[newPolygonCounter] = meterAheadOnPlane[1];
-                        newPolygonCounter += 2;
-                        for (int k = j+1 ; k < polygon.length * 2; k++){
-                            if (k == cutInexes[2] || k == cutInexes[3]){
-                                while(k != cutInexes[1]){
-                                    newPolygon[newPolygonCounter] = polygon[k];
-                                    newPolygonCounter ++;
+                                newPolygon[newPolygonCounter] = cameraPoseOnPlane[0];
+                                newPolygon[newPolygonCounter + 1] = cameraPoseOnPlane[1];
+                                newPolygonCounter += 2;
+                                break;
+                            } else if (k == cutInexes[0]) {
+                                newPolygon[newPolygonCounter] = cameraPoseOnPlane[0];
+                                newPolygon[newPolygonCounter + 1] = cameraPoseOnPlane[1];
+                                newPolygonCounter += 2;
+                                k += 2;
+                                while (k % polygon.length != cutInexes[2] && k % polygon.length != cutInexes[3]) {
+                                    newPolygon[newPolygonCounter] = polygon[k % polygon.length];
+                                    newPolygonCounter++;
+                                    k++;
+                                }
+                                newPolygon[newPolygonCounter] = meterAheadOnPlane[0];
+                                newPolygon[newPolygonCounter + 1] = meterAheadOnPlane[1];
+                                newPolygonCounter += 2;
+                                while (k % polygon.length != cutInexes[2] && k % polygon.length != cutInexes[3])
+                                    k++;
+                                while (k % polygon.length != cutInexes[0]) {
+                                    newPolygon[newPolygonCounter] = polygon[k % polygon.length];
                                     k++;
                                 }
                                 break;
                             }
                         }
-                        break;
                     }
                 }
-            }
-        }
-        return findFinalDistance(polygon, objectsInside, 'X', true, diagonaCamera);
+
+
+
+
+        return findFinalDistance(newPolygon, objectsInside, 'X', true, diagonaCamera);
         //return findFinalDistance(newPolygon, objectsInside, diagonaCamera);
     }
 }
