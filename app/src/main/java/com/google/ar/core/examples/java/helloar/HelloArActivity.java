@@ -109,7 +109,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private long counter = 0;
     private int door_counter = 0;
     private float[] door_widths;
-    private final int avg_times = 5;
+    private final int avg_times = 10;
 
     // Temporary matrix allocated here to reduce number of allocations for each frame.
     private final float[] anchorMatrix = new float[16];
@@ -519,11 +519,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         } else {
                             door_widths[door_counter % avg_times] = object_widths[0];
                             door_counter++;
-                            float avg_width = 0.0f;
-                            for (int k = 0; k < avg_times; k++) {
-                                avg_width += door_widths[k];
-                            }
-                            avg_width /= avg_times;
+                            float avg_width = getFinalWidth(door_widths);
                             message += "\n";
                             message += "AR-CV width is:";
                             message += avg_width;
@@ -642,5 +638,47 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
             default:
                 return 0;
         }
+    }
+
+    private float getAvg(float[] door_widths) {
+        float avg_width = 0.0f;
+
+        for (int k = 0; k < avg_times; k++) {
+            avg_width += door_widths[k];
+        }
+        avg_width /= avg_times;
+        return avg_width;
+    }
+
+    //    calculate StandardDeviation
+    private float getStandardDeviation(float[] door_widths, float avg_width) {
+        float stanDav = 0.0f;
+        for (int k = 0; k < avg_times; k++) {
+            stanDav += Math.pow(avg_width - door_widths[k], 2);
+        }
+        stanDav = (float) Math.sqrt(stanDav)/avg_times;
+        return stanDav;
+    }
+
+    //    get array of doors lengthes and find final avg
+    private float getFinalWidth(float[] door_widths) {
+        float avg_width = getAvg(door_widths);
+        System.out.println(avg_width);
+        float stanDav = getStandardDeviation(door_widths, avg_width);
+        ArrayList<Float> filltersWidths = new ArrayList<Float>();
+        for (int k = 0; k < avg_times; k++) {
+            if (door_widths[k] >= avg_width - stanDav & door_widths[k] <= avg_width + stanDav) {
+                filltersWidths.add(door_widths[k]);
+            }
+        }
+        float FinalAvgWidth = 0.0f;
+
+        for (int k = 0; k < filltersWidths.size(); k++) {
+            FinalAvgWidth += filltersWidths.get(k);
+        }
+
+        FinalAvgWidth /= filltersWidths.size();
+
+        return FinalAvgWidth;
     }
 }
