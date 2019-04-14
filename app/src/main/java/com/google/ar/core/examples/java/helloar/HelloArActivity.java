@@ -16,13 +16,6 @@
 
 package com.google.ar.core.examples.java.helloar;
 
-import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.ImageFormat;
-import android.graphics.Paint;
 import android.media.Image;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
@@ -65,21 +58,12 @@ import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
-import java.io.ByteArrayOutputStream;
-
-import android.graphics.YuvImage;
-import android.graphics.Rect;
-
-import java.nio.FloatBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
+
+import static com.google.ar.core.examples.java.helloar.AR.distanceBetweenPoses;
 
 /**
  * This is a simple example that shows how to create an augmented reality (AR) application using the
@@ -125,6 +109,10 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private final ArrayList<ColoredAnchor> anchors = new ArrayList<>();
     private boolean createdOCD = false;
     private TextView textView;
+
+    //Memory annchors for height ----------------------------------------------------------
+    private final ArrayList<Anchor> floor_anchors = new ArrayList<>();
+    private final ArrayList<Pose> dist_poses = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -338,6 +326,39 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
 
                     ArrayList<Plane> ALPlanes = new ArrayList<>(session.getAllTrackables(Plane.class));
                     floor = AR.getFloor(ALPlanes, camera);
+
+                    // Height analysis ----------------------------------------------------------------------
+                    float height_check = -1.0f;
+                    int counter = 0;
+
+                    int indicator=1;
+                    if (floor != null){
+                        height_check = AR.find_height(floor, camera); // height check
+                        message += "Height from floor is - ";
+                        message += height_check;
+                        message += '\n';
+
+                        // Adding an Anchor tells ARCore that it should track this position in
+                        // space. This anchor is created on the Plane to place the 3D model
+                        // in the correct position relative both to the world and to the plane.
+
+                        floor_anchors.add(session.createAnchor(floor.getCenterPose()));
+                        counter++;
+                        if (counter<15){
+                            message += "There is new anchor in town - ";
+                            message += counter;
+                            message += '\n';
+                        }
+                        if (floor_anchors.size() >= 20) {
+                            floor_anchors.get(0).detach();
+                            floor_anchors.remove(0);
+                        }
+
+                    }
+
+
+                    //--------------------------------------------------------------------
+
                     // important
                     float floorWidth = -1.0f;
                     if (floor != null) {
@@ -386,7 +407,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         message += recognitions.get(0).label;
                     }
                     if (!message.equals("")) {
-                        textView.setText(message);
+                        //textView.setText(message); ---------------------------------------------
                     }
 
                 } catch (Throwable ignored) {
@@ -472,6 +493,7 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
     private void handleTap(Frame frame, Camera camera) {
         MotionEvent tap = tapHelper.poll();
         if (tap != null && camera.getTrackingState() == TrackingState.TRACKING) {
+            int indicator = 0;
             for (HitResult hit : frame.hitTest(tap)) {
                 // Check if any plane was hit, and if it was hit inside the plane polygon
                 Trackable trackable = hit.getTrackable();
@@ -506,6 +528,24 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     // space. This anchor is created on the Plane to place the 3D model
                     // in the correct position relative both to the world and to the plane.
                     anchors.add(new ColoredAnchor(hit.createAnchor(), objColor));
+
+                    // -------------------------------
+                    if (indicator == 0) {
+                        dist_poses.add(hit.getHitPose());
+                        if (dist_poses.size() >= 3) {
+                            dist_poses.remove(0);
+                            float r = distanceBetweenPoses(dist_poses.get(0), dist_poses.get(1)); // No real coordinates system
+                            String message = "dist is - ";
+                            message += r;
+                            message += '\n';
+                            if (!message.equals("")) { // Override the message from OnDraw
+                                textView.setText(message);
+                            }
+                        }
+                        indicator++;
+                    }
+                    // ---------------------------
+
                     break;
                 }
             }

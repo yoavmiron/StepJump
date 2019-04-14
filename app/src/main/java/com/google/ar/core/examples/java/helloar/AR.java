@@ -1,8 +1,5 @@
 package com.google.ar.core.examples.java.helloar;
 
-import android.view.MotionEvent;
-
-import com.google.ar.core.Anchor;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
@@ -24,7 +21,7 @@ public class AR {
      * @param pose2 second pose
      * @return the distance between the poses
      */
-    public static float distanceBetweenPoses(Pose pose1, Pose pose2) {
+    public static float distanceBetweenPoses(Pose pose1, Pose pose2) { // No real coordinates system
         float dx = pose1.tx() - pose2.tx();
         float dy = pose1.ty() - pose2.ty();
         float dz = pose1.tz() - pose2.tz();
@@ -304,4 +301,11 @@ public class AR {
         }
         return min_X_width < min_Z_width ? min_X_width : min_Z_width;
     }
+
+    public static float find_height(Plane plane, Camera camera) {
+        Pose center = plane.getCenterPose();
+        float height = camera.getPose().getTranslation()[1] - center.getTranslation()[1];
+        return height;
+    }
+
 }
