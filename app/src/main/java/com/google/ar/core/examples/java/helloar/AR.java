@@ -26,7 +26,7 @@ public class AR {
      * @param pose2 second pose
      * @return the distance between the poses
      */
-    public static float distanceBetweenPoses(Pose pose1, Pose pose2) {
+    static float distanceBetweenPoses(Pose pose1, Pose pose2) {
         float dx = pose1.tx() - pose2.tx();
         float dy = pose1.ty() - pose2.ty();
         float dz = pose1.tz() - pose2.tz();
@@ -35,7 +35,7 @@ public class AR {
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    public static float horizontalDistanceBetweenPoses(Pose pose1, Pose pose2) {
+    static float horizontalDistanceBetweenPoses(Pose pose1, Pose pose2) {
         float dx = pose1.tx() - pose2.tx();
         float dz = pose1.tz() - pose2.tz();
 
@@ -50,7 +50,7 @@ public class AR {
      * @param pose2 second pose
      * @return the distance between the poses
      */
-    public static float distanceBetweenPoses(float[] pose1, float[] pose2) {
+    static float distanceBetweenPoses(float[] pose1, float[] pose2) {
         float dx = pose1[0] - pose2[0];
         float dy = pose1[1] - pose2[1];
         float dz = pose1[2] - pose2[2];
@@ -64,7 +64,7 @@ public class AR {
      * @param floor  the floor plane
      * @return ArrayList of the objects in the session
      */
-    public static ArrayList<ArrayList<float[]>> getObjects(float[] points, Plane floor) {
+    static ArrayList<ArrayList<float[]>> getObjects(float[] points, Plane floor) {
         if (floor == null)
             return new ArrayList<>();
         ArrayList<float[]> allPoints = new ArrayList<>();
@@ -208,7 +208,7 @@ public class AR {
      * @param frame current frame
      * @return distance between two pixels in the real world, -1 if can't calculate
      */
-    public static float pixelToDistance(float[] pixel, Frame frame) {
+    static float pixelToDistance(float[] pixel, Frame frame) {
         List<HitResult> hits = frame.hitTest(pixel[0], pixel[1]);
         if (hits.isEmpty()) {
             return -1.0f;
@@ -227,7 +227,7 @@ public class AR {
      * @param planes a list of all planes detected by the program
      * @return the floor if detected, null otherwise
      */
-    public static Plane getFloor(ArrayList<Plane> planes, Camera camera) {
+    static Plane getFloor(ArrayList<Plane> planes, Camera camera) {
         if (planes.size() == 0) {
             return null;
         }
@@ -269,7 +269,7 @@ public class AR {
      * @param floor plane to calculate it's width
      * @return width of plane if can calculate, 1000 otherwise
      */
-    public static float find_width(Plane floor) {
+    static float find_width(Plane floor) {
         return find_width(floor.getPolygon().array());
     }
 
@@ -371,7 +371,7 @@ public class AR {
      * @param points all point found in frame
      * @return list of all possible points for floor extension
      */
-    public static ArrayList<float[]> findExtensionPoints(Plane floor, float[] points) {
+    static ArrayList<float[]> findExtensionPoints(Plane floor, float[] points) {
         final float certaintyThreshold = 0.10f; // was 0.15
         final float heightVariance = 0.05f;
 
@@ -395,7 +395,7 @@ public class AR {
         return retList;
     }
 
-    public static float[][] polygon_to_xz(float[] points) {
+    static float[][] polygon_to_xz(float[] points) {
         float[] xes = new float[points.length / 2];
         float[] zes = new float[points.length / 2];
         for (int i = 0; i < points.length; i += 2) {
@@ -413,7 +413,7 @@ public class AR {
      * @param extensionPoints points to add to the polygon as vertices
      * @return the new polygon with (hopefully) optimal addition of points
      */
-    public static float[] extendFloor(float[] floorPolygon, ArrayList<float[]> extensionPoints, float x_extent, float z_extent) {
+    static float[] extendFloor(float[] floorPolygon, ArrayList<float[]> extensionPoints, float x_extent, float z_extent) {
 
         /*
         float[][] xz = polygon_to_xz(floorPolygon);
@@ -427,8 +427,7 @@ public class AR {
             ret = extendSinglePoint(ret, point[0], point[1], doubleArrayToSingle(ret),x_extent,z_extent);
         }
 
-        float[] retAsSingleArray = doubleArrayToSingle(ret);
-        return retAsSingleArray;
+        return doubleArrayToSingle(ret);
     }
 
     /**
@@ -521,7 +520,6 @@ public class AR {
                 ret[0][j] = x[i];
                 ret[1][j] = z[i];
             }
-
         } else if (replaceTo < replaceFrom) {
             int newLen = replaceFrom - replaceTo + 1;
             if (newLen <= oldLen / 2) {
@@ -551,8 +549,6 @@ public class AR {
                 ret[1][i + 1] = z[i];
             }
         }
-
-
         return ret;
     }
 
@@ -584,7 +580,7 @@ public class AR {
         return false;
     }
 
-    public static Pose project_pose_to_plane(Plane plane, Pose pose) {
+    static Pose project_pose_to_plane(Plane plane, Pose pose) {
         float[] pose_translation = pose.getTranslation();
         float xPose = pose_translation[0];
         float yPose = pose_translation[1];
@@ -625,7 +621,7 @@ public class AR {
         return retInXZForm;
     }
 
-    public static float[] Convert_Point_From_Reality_to_Plane_Given_Angle(Pose point, Plane plane) {
+    static float[] Convert_Point_From_Reality_to_Plane_Given_Angle(Pose point, Plane plane) {
         float[] XAxis = plane.getCenterPose().getXAxis();
         float[] ZAxis = plane.getCenterPose().getZAxis();
         float xp = point.tx() * XAxis[0] + point.tz() * XAxis[2];
@@ -636,9 +632,10 @@ public class AR {
         return new float[]{xp, zp};
     }
 
-    private static float findFinalDistance(float[] polygon, float[][] objectsInside, TwoDLine xAxis){
-        float [] newPolygon = TwoDLine.convert_points_to_coord(polygon, xAxis);
-        return findFinalDistance(newPolygon, objectsInside, 'X', true, xAxis);
+
+
+    static float findFinalDistance(float[] polygon, float[][] objectsInside){
+        return Math.min(findFinalDistance(polygon, objectsInside, 'X', false, null),findFinalDistance(polygon, objectsInside, 'Z', false, null));
     }
 
     private static float findFinalDistance(float[] polygon, float[][] objectsInside, char axis, boolean meter, TwoDLine meterAxis)
@@ -901,8 +898,7 @@ public class AR {
                 return plane;
         }
         float[] edge_points = find_plane_and_object_edge_points(plane, temp_pointsIn, temp_pointsOut);
-        float[] new_plane = change_plane(plane, edge_points, pointsIn);
-        return new_plane;
+        return change_plane(plane, edge_points, pointsIn);
     }
 
     private float[] find_plane_and_object_edge_points(float[] plane, float[] pointsIn, float[] pointsOut) {
@@ -988,9 +984,7 @@ public class AR {
                         done = true;
                         if (i < j) {
                             float[] new_plane = new float[plane.length + i / 2 - j / 2 + 2];
-                            for (int g = 0; g < i + 2; g++) {
-                                new_plane[g] = plane[g];
-                            }
+                            System.arraycopy(plane, 0, new_plane, 0, i + 2);
                             for (int h = 0; h < new_points.length; h++) {
                                 new_plane[i + 2 + h] = new_points[h];
                             }
@@ -1126,10 +1120,10 @@ public class AR {
                                 newPolygon[newPolygonCounter] = meterAheadOnPlane[0];
                                 newPolygon[newPolygonCounter] = meterAheadOnPlane[1];
                                 newPolygonCounter += 2;
-                                temp = k++;
+                                temp = k + 1;
                                 break;
                             }
-                            temp = k++;
+                            temp = k + 1;
                         }
                         for (int f = temp; f < polygon.length * 2; f++) {
                             if (f == cutInexes[2] || f == cutInexes[3])
@@ -1165,6 +1159,7 @@ public class AR {
                 }
             }
         }
-        return findFinalDistance(polygon, objectsInside, diagonaCamera);
+        return findFinalDistance(polygon, objectsInside, 'X', true, diagonaCamera);
+        //return findFinalDistance(newPolygon, objectsInside, diagonaCamera);
     }
 }

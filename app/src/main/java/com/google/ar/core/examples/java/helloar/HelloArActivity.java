@@ -425,12 +425,19 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         float[] floor2D = floor.getPolygon().array();
                         float[] floor2 = AR.extendFloor(floor2D, ptsLst2D, floor.getExtentX(), floor.getExtentZ());
 
-                        floorWidth = AR.find_width(floor); // update to new find_width with cut objects
                         ArrayList<ArrayList<float[]>> objects = AR.getObjects(allFramePoints, floor);
-                        meterAhead = AR.meter_ahead(floor, floor2,AR.four_points_of_all_objects(floor,objects),camera);
+                        float[][] objects_edges = AR.four_points_of_all_objects(floor, objects);
+
+                        floorWidth = AR.findFinalDistance(floor2, objects_edges); // update to new find_width with cut objects
+                        meterAhead = AR.meter_ahead(floor, floor2, objects_edges, camera);
                         if (floorWidth < 10) {
                             message += "Floor width ";
                             message += floorWidth;
+                            message += '\n';
+                        }
+                        if (meterAhead < 10) {
+                            message += "Meter ahead width ";
+                            message += meterAhead;
                             message += '\n';
                         }
                     }
