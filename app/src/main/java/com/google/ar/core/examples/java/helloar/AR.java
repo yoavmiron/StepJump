@@ -7,6 +7,7 @@ import com.google.ar.core.Camera;
 import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
+import com.google.ar.core.PointCloud;
 import com.google.ar.core.Pose;
 
 import java.nio.FloatBuffer;
@@ -80,7 +81,7 @@ public class AR {
         }
         ArrayList<ArrayList<float[]>> objects = new ArrayList<>();
         ArrayList<Integer> checked_indexes = new ArrayList<>();
-        float distanceThreshold = 0.3f;
+        float distanceThreshold = 0.5f;
         int object_index = -1;
         int point_index = -1;
         int next_point = 0;
@@ -100,9 +101,9 @@ public class AR {
             ArrayList<float[]> object = objects.get(object_index);
             while (object.size() > point_index) {
                 for (int i = 0; i < allPoints.size(); i++) {
-                    if (checked_indexes.contains(i))
+                    if(checked_indexes.contains(i))
                         continue;
-                    if (distanceBetweenPoses(object.get(point_index), allPoints.get(i)) < distanceThreshold) {
+                    if(distanceBetweenPoses(object.get(point_index),allPoints.get(i)) < distanceThreshold){
                         object.add(allPoints.get(i));
                         checked_indexes.add(i);
                     }
@@ -633,5 +634,537 @@ public class AR {
         float xp = (float) (point.tx() * Math.cos(angle) - point.tz() * Math.sin(angle)) - plane.getCenterPose().getTranslation()[0];
         float zp = (float) (-point.tx() * Math.sin(angle) - point.tz() * (Math.cos(angle))) - plane.getCenterPose().getTranslation()[2];*/
         return new float[]{xp, zp};
+    }
+
+    private static float findFinalDistance(float[] polygon, float[][] objectsInside, TwoDLine xAxis){
+        float [] newPolygon = TwoDLine.convert_points_to_coord(polygon, xAxis);
+        return findFinalDistance(newPolygon, objectsInside, 'X', true, xAxis);
+    }
+
+    private static float findFinalDistance(float[] polygon, float[][] objectsInside, char axis, boolean meter, TwoDLine meterAxis)
+    //each object is sorted as [minX, minZ, maxX, maxZ] in the float-arrays array
+    {
+        //parameters for the resolution
+        double EDGE_FACTOR = 0.5; //which distance from edges we stop checking
+        if (meter) {
+            EDGE_FACTOR = 0;
+            if (meterAxis.getA() == 0)
+                axis = 'X';
+            else if (-meterAxis.getB()/meterAxis.getA() > 1 || -meterAxis.getB()/meterAxis.getA() < -1)
+                axis = 'X';
+            else
+                axis = 'Z';
+        }
+        double STEP_FACTOR = 0.1; //the stepsize we go in each axis
+        int MAX_POINTS = objectsInside.length; // the maximum amount of objects we estimate to be in one axis
+        float maxX = 0, minX = 0, maxZ = 0, minZ = 0;
+        //find the minimal and maximal x and z coordinates in the polygon
+        for (int i = 0; i < polygon.length/2; i++) {
+            if (polygon[2 * i] < minX)
+                minX = polygon[2 * i];
+            else if (polygon[2 * i] > maxX)
+                maxX = polygon[2 * i];
+            if (polygon[2 * i + 1] < minZ)
+                minZ = polygon[2 * i + 1];
+            else if (polygon[2 * i + 1] > maxZ)
+                maxZ = polygon[2 * i + 1];
+        }
+
+        float minimalMaxDistance = 999999999f;
+
+        for (double i = minX + EDGE_FACTOR; i < maxX - EDGE_FACTOR; i += STEP_FACTOR) {
+            float a, b, c;
+            if (axis == 'X') {
+                // check if we need to check the X or Z axis
+                a = 0;
+                b = 1;
+                c = (float) (-1 * i);
+            } else {
+                a = 1;
+                b = 0;
+                c = (float) (-1 * i);
+            }
+            TwoDLine Axis = new TwoDLine(a, b, c); // define a line of the required orientation
+            TwoDLine[] lines = Axis.find_lines(polygon); //find the intersections of this line with
+            //the polygon
+            float[] intersection1 = Axis.Find_InterSection(lines[0]);
+            float[] intersection2 = Axis.Find_InterSection(lines[1]);
+            float[] onDiameter = new float[MAX_POINTS * 4 + 4];//the array in which we put the points which are on our Axis
+            int added_counter = 2; // counts how many coordinates we added (pointsX2)
+            onDiameter[0] = intersection1[0];
+            onDiameter[1] = intersection1[1];
+            onDiameter[onDiameter.length - 2] = intersection2[0];
+            onDiameter[onDiameter.length - 1] = intersection2[1];
+            for (int j = 0; j < objectsInside.length; j++)
+            //find the intersections with other objects of this longitude
+            {
+                float[] object = objectsInside[j]; // float array at the size of 8 - 2 for each corner
+                float objectMinXX = object[0];
+                float objectMinXZ = object[1];
+                float objectMinZX = object[2];
+                float objectMinZZ = object[3];
+                float objectMaxXX = object[4];
+                float objectMaxXZ = object[5];
+                float objectMaxZX = object[6];
+                float objectMaxZZ = object[7];
+                if (Axis.is_intersection_in_between_points(objectMinXX, objectMinXZ,
+                        objectMinZX, objectMinZZ))// checks if the intersection is on the side of the object
+                {
+                    float[] intersection = Axis.Find_InterSection
+                            (TwoDLine.Create_From_Two_Points(objectMinXX, objectMinXZ,
+                                    objectMinZX, objectMinZZ));
+                    onDiameter[added_counter] = intersection[0];
+                    onDiameter[added_counter + 1] = intersection[1];
+                    added_counter += 2;
+                }
+                if (Axis.is_intersection_in_between_points(objectMinXX, objectMinXZ,
+                        objectMaxZX, objectMaxZZ)) {
+                    float[] intersection = Axis.Find_InterSection
+                            (TwoDLine.Create_From_Two_Points(objectMinXX, objectMinXZ,
+                                    objectMaxZX, objectMaxZZ));
+                    onDiameter[added_counter] = intersection[0];
+                    onDiameter[added_counter + 1] = intersection[1];
+                    added_counter += 2;
+                }
+                if (Axis.is_intersection_in_between_points(objectMaxXX, objectMaxXZ,
+                        objectMinZX, objectMinZZ)) {
+                    float[] intersection = Axis.Find_InterSection
+                            (TwoDLine.Create_From_Two_Points(objectMaxXX, objectMaxXZ,
+                                    objectMinZX, objectMinZZ));
+                    onDiameter[added_counter] = intersection[0];
+                    onDiameter[added_counter + 1] = intersection[1];
+                    added_counter += 2;
+                }
+                if (Axis.is_intersection_in_between_points(objectMaxXX, objectMaxXZ,
+                        objectMaxZX, objectMaxZZ)) {
+                    float[] intersection = Axis.Find_InterSection
+                            (TwoDLine.Create_From_Two_Points(objectMaxXX, objectMaxXZ,
+                                    objectMaxZX, objectMaxZZ));
+                    onDiameter[added_counter] = intersection[0];
+                    onDiameter[added_counter + 1] = intersection[1];
+                    added_counter += 2;
+                }
+
+            }
+            float max_distance = 0;
+            for (int k = 0; k < onDiameter.length / 4; k++)
+                // check the maximum passable length between objects
+                if (TwoDLine.Distance_Between_Points(onDiameter[4 * k], onDiameter[4 * k + 1],
+                        onDiameter[4 * k + 2], onDiameter[4 * k + 3]) > max_distance)
+                    max_distance = TwoDLine.Distance_Between_Points(onDiameter[4 * k],
+                            onDiameter[4 * k + 1], onDiameter[4 * k + 2], onDiameter[4 * k + 3]);
+
+            if (max_distance < minimalMaxDistance) // we need to find the minimal maximal size to know in which distance we can pass
+                minimalMaxDistance = max_distance;
+        }
+        return minimalMaxDistance;
+    }
+
+    static float[][] four_points_of_all_objects(Plane plane, ArrayList<ArrayList<float[]>> all_object_points) {
+        float[][] arr = new float[all_object_points.size()][4];
+        for (int i = 0; i < all_object_points.size(); i++) {
+            float[] obj_arr = four_points_of_object(plane, all_object_points.get(i));
+            int[] indices = new int[]{1, 2, 4, 5, 7, 8, 10, 11};
+            float[] obj_a = new float[8];
+            for (int j = 0; j < 8; j++)
+                obj_a[j] = obj_arr[indices[j]];
+            arr[i] = obj_a;
+        }
+        return arr;
+    }
+
+    private static float[] four_points_of_object(Plane plane, ArrayList<float[]> object_points)
+    {
+        float[] min_z_p = new float[3], max_z_p=new float[3], min_x_p = new float[3], max_x_p = new float[3];
+        for(float[] p: object_points)
+        {
+            Pose pose = new Pose(p,new float[]{0,0,0,0});
+            float[] point_in_plane_system = Convert_Point_From_Reality_to_Plane_Given_Angle(pose, plane);
+            float x = point_in_plane_system[0], z = point_in_plane_system[1];
+            if (x>max_x_p[0])
+            {
+                max_x_p[0] = x;
+                max_x_p[1] = z;
+                max_x_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
+            }
+            if (x<min_x_p[0])
+            {
+                min_x_p[0]=x;
+                min_x_p[1]=z;
+                min_x_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
+            }
+            if (z>max_z_p[1])
+            {
+                max_z_p[0]=x;
+                max_z_p[1]=z;
+                max_z_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
+            }
+            if (z<min_z_p[1])
+            {
+                min_z_p[0]=x;
+                min_z_p[1]=z;
+                min_z_p[2] = convert_bool_to_float(plane.isPoseInPolygon(pose));
+            }
+        }
+        float [] to_ret = new float[13];
+        float points_inside = min_x_p[2]+max_x_p[2]+max_z_p[2]+min_z_p[2];
+        return new float[]{points_inside,min_x_p[0],min_x_p[1],min_x_p[2],min_z_p[0],min_z_p[1],min_z_p[2],max_x_p[0],max_x_p[1],max_x_p[2],max_z_p[0],max_z_p[1],max_z_p[2]};
+    }
+
+    private static float convert_bool_to_float(boolean bool) {
+        if (bool)
+            return 1;
+        else
+            return 0;
+    }
+
+    float[] createPlane (PointCloud cloud, Plane plane, float[] polygon, ArrayList<ArrayList<float[]>> objects)
+    {
+        float[][] objectsInside = new float[0][0];
+        for (ArrayList<float[]> object : objects)
+        {
+            boolean allOut = true;
+            boolean allIn = true;
+            for (float[] point: object) {
+                float[] poseCoordiantes = new float[3];
+                poseCoordiantes[0] = point[0];
+                poseCoordiantes[1] = point[1];
+                poseCoordiantes[2] = point[2];
+                float[] fakeQuaternions = new float[4];
+                fakeQuaternions[0] = 0;
+                fakeQuaternions[1] = 0;
+                fakeQuaternions[2] = 1;
+                fakeQuaternions[3] = 0;
+                Pose pose = new Pose(poseCoordiantes,fakeQuaternions);
+                if (plane.isPoseInPolygon(pose))
+                    allOut = false;
+                else
+                    allIn = false;
+            }
+            if (allIn || allOut) {
+                objects.remove(object);
+            }
+            else
+            {
+                float[] real_object = four_points_of_object(plane, object);
+                float[] pointsIn = new float[2* (int)real_object[0]];
+                int inCounter = 0;
+                int outCounter = 0;
+                float[] pointsOut = new float[8-(2* (int)real_object[0])];
+                for (int i=1; i< real_object.length; i+=3)
+                {
+                    if (real_object[i+2] == 0)
+                    {
+                        pointsIn[inCounter] = real_object[i];
+                        pointsIn[inCounter+1] = real_object[i+1];
+                        inCounter += 2;
+                    }
+                    else
+                    {
+                        pointsOut[outCounter] = real_object[i];
+                        pointsOut[outCounter+1] = real_object[i+1];
+                        outCounter += 2;
+                    }
+                }
+                polygon = cut_plane_points_inside(polygon, pointsIn, pointsOut);
+            }
+        }
+        return polygon;
+    }
+
+    private float[] cut_plane_points_inside(float[] plane, float[] pointsIn, float[] pointsOut) {
+        float[] temp_pointsIn = new float[4];
+        float[] temp_pointsOut = new float[4];
+        switch (pointsIn.length) {
+            case 0:
+                return plane;
+            case 2:
+                for (int i = 0; i < 4; i++) {
+                    temp_pointsIn[i] = temp_pointsIn[i % 2];
+                }
+                temp_pointsOut[0] = pointsOut[0];
+                temp_pointsOut[1] = pointsOut[1];
+                temp_pointsOut[2] = pointsOut[4];
+                temp_pointsOut[3] = pointsOut[5];
+            case 4:
+                temp_pointsIn = pointsIn;
+                temp_pointsOut = pointsOut;
+            case 6:
+                for (int i = 0; i < 4; i++) {
+                    temp_pointsOut[i] = temp_pointsOut[i % 2];
+                }
+                temp_pointsIn[0] = pointsIn[0];
+                temp_pointsIn[1] = pointsIn[1];
+                temp_pointsIn[2] = pointsIn[4];
+                temp_pointsIn[3] = pointsIn[5];
+            case 8:
+                return plane;
+        }
+        float[] edge_points = find_plane_and_object_edge_points(plane, temp_pointsIn, temp_pointsOut);
+        float[] new_plane = change_plane(plane, edge_points, pointsIn);
+        return new_plane;
+    }
+
+    private float[] find_plane_and_object_edge_points(float[] plane, float[] pointsIn, float[] pointsOut) {
+        // points in and out match each other (right-left), must give only 2 points in and
+        // 2 points out
+        float[] current_points = new float[8];
+        for (int i = 0; i < current_points.length; i++) {
+            current_points[i] = 0;
+        }
+        float[][] sorted = sort_plane(plane);
+        float minimal_distance1 = 100000;
+        float minimal_distance2 = 100000;
+        float distance;
+        for (int i = 0; i < sorted[0].length; i++) {
+            distance = TwoDLine.Distance_Between_Points(sorted[0][i], sorted[1][i], pointsIn[0], pointsIn[1]) +
+                    TwoDLine.Distance_Between_Points(sorted[0][i], sorted[1][i], pointsOut[0], pointsOut[1]);
+            if (distance < minimal_distance2) {
+                if (distance < minimal_distance1) {
+                    minimal_distance2 = minimal_distance1;
+                    minimal_distance1 = distance;
+                    current_points[2] = current_points[0];
+                    current_points[3] = current_points[1];
+                    current_points[0] = sorted[0][i];
+                    current_points[1] = sorted[1][i];
+                } else {
+                    minimal_distance2 = distance;
+                    current_points[2] = sorted[0][i];
+                    current_points[3] = sorted[1][i];
+                }
+            }
+        }
+        minimal_distance1 = 100000;
+        minimal_distance2 = 100000;
+        for (int i = 0; i < sorted[0].length; i++) {
+            distance = TwoDLine.Distance_Between_Points(sorted[0][i], sorted[1][i], pointsIn[2], pointsIn[3]) +
+                    TwoDLine.Distance_Between_Points(sorted[0][i], sorted[1][i], pointsOut[2], pointsOut[3]);
+            if (distance < minimal_distance2) {
+                if (distance < minimal_distance1) {
+                    minimal_distance2 = minimal_distance1;
+                    minimal_distance1 = distance;
+                    current_points[6] = current_points[4];
+                    current_points[7] = current_points[5];
+                    current_points[4] = sorted[0][i];
+                    current_points[5] = sorted[1][i];
+                } else {
+                    minimal_distance2 = distance;
+                    current_points[6] = sorted[4][i];
+                    current_points[7] = sorted[5][i];
+                }
+            }
+        }
+        /*TwoDLine lineOne = TwoDLine.Create_From_Two_Points(pointsIn[0], pointsIn[1], pointsOut[0], pointsOut[1]);
+        TwoDLine lineTwo = TwoDLine.Create_From_Two_Points(pointsIn[2], pointsIn[3], pointsOut[2], pointsOut[3]);
+        TwoDLine lineOneInter = TwoDLine.Create_From_Two_Points(current_points[0], current_points[1], current_points[2], current_points[3]);
+        TwoDLine lineTwoInter = TwoDLine.Create_From_Two_Points(current_points[4], current_points[5], current_points[6], current_points[7]);
+        float[] intersec1 = lineOne.Find_InterSection(lineOneInter);
+        float[] intersec2 = lineTwo.Find_InterSection(lineTwoInter);
+        float[] intersections = new float[4];
+        intersections[0] = intersec1[0];
+        intersections[1] = intersec1[1];
+        intersections[2] = intersec2[0];
+        intersections[3] = intersec2[1];*/
+        return current_points;
+    }
+
+    private float[][] sort_plane(float[] plane) {
+        float[][] sorted = new float[2][plane.length / 2];
+        float[] planesX = new float[plane.length / 2];
+        float[] planesZ = new float[plane.length / 2];
+        for (int i = 0; i < plane.length; i++) {
+            sorted[0][i] = plane[2 * i];
+            sorted[1][i] = plane[2 * i + 1];
+        }
+        return sorted;
+    }
+
+    private float[] change_plane(float[] plane, float[] sides, float[] new_points) {
+        for (int i = 0; i < plane.length - 1; i++) {
+            if (plane[i] == sides[0] && plane[i + 1] == sides[1]) {
+                boolean done = false;
+                for (int j = 0; j < plane.length && !done; j++) {
+                    if (plane[j] == sides[6] && plane[j + 1] == sides[7]) {
+                        done = true;
+                        if (i < j) {
+                            float[] new_plane = new float[plane.length + i / 2 - j / 2 + 2];
+                            for (int g = 0; g < i + 2; g++) {
+                                new_plane[g] = plane[g];
+                            }
+                            for (int h = 0; h < new_points.length; h++) {
+                                new_plane[i + 2 + h] = new_points[h];
+                            }
+                            for (int g = j; g < plane.length; g++) {
+                                new_plane[g - j + i + new_points.length] = plane[g];
+                            }
+                            return new_plane;
+                        }
+                    }
+                }
+
+            }
+        }
+        return null;
+    }
+
+
+    float merge_plane_width (PointCloud cloud, Plane plane, float[] polygon, ArrayList<ArrayList<float[]>> objects) {
+        float[][] objectsInside = new float[0][0];
+        for (ArrayList<float[]> object : objects)
+        {
+            boolean allOut = true;
+            boolean allIn = true;
+            for (float[] point: object) {
+                float[] poseCoordiantes = new float[3];
+                poseCoordiantes[0] = point[0];
+                poseCoordiantes[1] = point[1];
+                poseCoordiantes[2] = point[2];
+                float[] fakeQuaternions = new float[4];
+                fakeQuaternions[0] = 0;
+                fakeQuaternions[1] = 0;
+                fakeQuaternions[2] = 1;
+                fakeQuaternions[3] = 0;
+                Pose pose = new Pose(poseCoordiantes,fakeQuaternions);
+                if (plane.isPoseInPolygon(pose))
+                    allOut = false;
+                else
+                    allIn = false;
+            }
+            if (allIn || allOut) {
+                objects.remove(object);
+            }
+            else
+            {
+                float[] real_object = four_points_of_object(plane, object);
+                float[] pointsIn = new float[2* (int)real_object[0]];
+                int inCounter = 0;
+                int outCounter = 0;
+                float[] pointsOut = new float[8-(2* (int)real_object[0])];
+                for (int i=1; i< real_object.length; i+=3)
+                {
+                    if (real_object[i+2] == 0)
+                    {
+                        pointsIn[inCounter] = real_object[i];
+                        pointsIn[inCounter+1] = real_object[i+1];
+                        inCounter += 2;
+                    }
+                    else
+                    {
+                        pointsOut[outCounter] = real_object[i];
+                        pointsOut[outCounter+1] = real_object[i+1];
+                        outCounter += 2;
+                    }
+                }
+                polygon = cut_plane_points_inside(polygon, pointsIn, pointsOut);
+            }
+        }
+        float Xdistance = findFinalDistance(polygon,objectsInside,'X', false, new TwoDLine(1,1,1));
+        float Zdistance = findFinalDistance(polygon, objectsInside, 'Z', false, new TwoDLine(1,1,1));
+        return Math.min(Xdistance, Zdistance);
+    }
+
+    static float meter_ahead (Plane plane, float[] polygon, float[][] objectsInside, Camera camera){
+        Pose cameraPose = camera.getPose();
+        Pose projected = project_pose_to_plane(plane, cameraPose);
+        float[] cameraPoseOnPlane = Convert_Point_From_Reality_to_Plane_Given_Angle(projected,plane);
+        float [] newTranslation = {cameraPose.getTranslation()[0], cameraPose.getTranslation()[1] + 1,
+                cameraPose.getTranslation()[2]};
+        float [] newQuaternions = {cameraPose.getRotationQuaternion()[0], cameraPose.getRotationQuaternion()[1],
+                cameraPose.getRotationQuaternion()[2], cameraPose.getRotationQuaternion()[3]};
+        Pose meterAhead = new Pose (newTranslation, newQuaternions);
+        Pose meterProjected = project_pose_to_plane(plane, meterAhead);
+        float[] meterAheadOnPlane = Convert_Point_From_Reality_to_Plane_Given_Angle(meterProjected, plane);
+        TwoDLine connection = TwoDLine.Create_From_Two_Points(cameraPoseOnPlane[0], cameraPoseOnPlane[1],
+                meterAheadOnPlane[0], meterAheadOnPlane[1]);
+        TwoDLine diagonaCamera = connection.Vertical(cameraPoseOnPlane[0], cameraPoseOnPlane[1]);
+        TwoDLine diagonalAhead = connection.Vertical(meterAheadOnPlane[0], meterAheadOnPlane[1]);
+        int [] cutInexes = new int[4];
+        boolean foundOneCamera = false;
+        boolean foundOneMeter = false;
+        System.out.print("works");
+        for (int i = 0; i < polygon.length - 2; i+=2){
+            // Finding he indexes in which to cut the old polygon
+            if (diagonaCamera.Distance_To_Point_Not_Abs(polygon[i], polygon[i+1])/
+                    diagonaCamera.Distance_To_Point_Not_Abs(polygon[i+2],polygon[i+3]) < 0){
+                // May need checking in which index to cut - didn't do it accuratly
+                if (!foundOneCamera) {
+                    cutInexes[0] = i;
+                    foundOneCamera = true;
+                }
+                else
+                    cutInexes[1] = i;
+            }
+
+            if (diagonaCamera.Distance_To_Point_Not_Abs(polygon[i], polygon[i+1])/
+                    diagonaCamera.Distance_To_Point_Not_Abs(polygon[i+2],polygon[i+3]) < 0){
+                // May need checking in which index to cut - didn't do it accuratly
+                if (!foundOneMeter) {
+                    cutInexes[2] = i;
+                    foundOneMeter = true;
+                }
+                else
+                    cutInexes[3] = i;
+            }
+        }
+        float[] newPolygon = new float [polygon.length];
+        int newPolygonCounter = 0;
+        for (int i = 0; i < polygon.length ; i+= 2){
+            if (i == cutInexes[0]){
+                for (int j = i; j < polygon.length * 2; j += 2){
+                    j = j & polygon.length;
+                    if(j == cutInexes[1]) {
+                        newPolygon[newPolygonCounter] = cameraPoseOnPlane[0];
+                        newPolygon[newPolygonCounter] = cameraPoseOnPlane[1];
+                        newPolygonCounter += 2;
+                        int temp = polygon.length;
+                        for (int k = j; k < polygon.length * 2; k++) {
+                            if (k == cutInexes[2] || k == cutInexes[3]) {
+                                while (k != cutInexes[3] && k != cutInexes[2]) {
+                                    newPolygon[newPolygonCounter] = polygon[k];
+                                    newPolygonCounter += 1;
+                                }
+                                newPolygon[newPolygonCounter] = meterAheadOnPlane[0];
+                                newPolygon[newPolygonCounter] = meterAheadOnPlane[1];
+                                newPolygonCounter += 2;
+                                temp = k++;
+                                break;
+                            }
+                            temp = k++;
+                        }
+                        for (int f = temp; f < polygon.length * 2; f++) {
+                            if (f == cutInexes[2] || f == cutInexes[3])
+                                while (f != cutInexes[0]) {
+                                    newPolygon[newPolygonCounter] = polygon[f];
+                                    newPolygonCounter++;
+                                    f++;
+                                }
+                        }
+                        break;
+                    }
+                    else
+                    if(j == cutInexes[2] || j == cutInexes[3]){
+                        for(int k = i; k < j + 2; k++){
+                            newPolygon[newPolygonCounter] = polygon[k];
+                            newPolygonCounter += 1;
+                        }
+                        newPolygon[newPolygonCounter] = meterAheadOnPlane[0];
+                        newPolygon[newPolygonCounter] = meterAheadOnPlane[1];
+                        newPolygonCounter += 2;
+                        for (int k = j+1 ; k < polygon.length * 2; k++){
+                            if (k == cutInexes[2] || k == cutInexes[3]){
+                                while(k != cutInexes[1]){
+                                    newPolygon[newPolygonCounter] = polygon[k];
+                                    newPolygonCounter ++;
+                                    k++;
+                                }
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        return findFinalDistance(polygon, objectsInside, diagonaCamera);
     }
 }

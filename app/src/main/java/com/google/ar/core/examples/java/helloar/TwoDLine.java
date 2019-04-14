@@ -171,6 +171,27 @@ Finds all lines connecting the two pairs of points closest to this line from bot
         return lines;
     }
 
+    public boolean is_intersection_in_between_points(float x1, float z1, float x2, float z2)
+    {
+        /*
+        Checks if the intersection of the line defined by (x1,z1,x2,z2)
+         */
+        float[] intersect = this.Find_InterSection(Create_From_Two_Points(x1, z1, x2, z2));
+        if (intersect[2] == 0)
+            return false;
+        if (intersect[2] == 2)
+            return true; //should never happen, but might be
+        if (intersect[2] == 1) {
+            float x = intersect[0], z = intersect[1];
+            float sum_distances = Math.abs(Distance_Between_Points(x1, z1, x, z)) + Math.abs(Distance_Between_Points(x2, z2, x, z));
+            if (sum_distances > Math.abs(Distance_Between_Points(x1, z1, x2, z2)))
+                return false;
+            else
+                return true;
+        }
+        return false;
+    }
+
 
     public static float Distance_Between_Points(float x1, float z1, float x2, float z2) {
         return (float) Math.sqrt((x1 - x2) * (x1 - x2) + (z1 - z2) * (z1 - z2));

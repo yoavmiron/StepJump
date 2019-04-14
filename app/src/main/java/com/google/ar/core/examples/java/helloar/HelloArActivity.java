@@ -409,7 +409,9 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                     floor = AR.getFloor(ALPlanes, camera);
                     // important
                     float floorWidth = -1.0f;
+                    float meterAhead = -1.0f;
                     if (floor != null) {
+                        // floor extension
                         FloatBuffer ptsBuffer = pointCloud.getPoints();
                         float[] allFramePoints = AR.bufferToArray(ptsBuffer);
 
@@ -424,6 +426,8 @@ public class HelloArActivity extends AppCompatActivity implements GLSurfaceView.
                         float[] floor2 = AR.extendFloor(floor2D, ptsLst2D, floor.getExtentX(), floor.getExtentZ());
 
                         floorWidth = AR.find_width(floor); // update to new find_width with cut objects
+                        ArrayList<ArrayList<float[]>> objects = AR.getObjects(allFramePoints, floor);
+                        meterAhead = AR.meter_ahead(floor, floor2,AR.four_points_of_all_objects(floor,objects),camera);
                         if (floorWidth < 10) {
                             message += "Floor width ";
                             message += floorWidth;
